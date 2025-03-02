@@ -112,7 +112,7 @@ export class BabylonEngine {
 
     private setupScene() {
         // Set scene clear color
-        this.scene.clearColor = new Color4(0.3, 0.3, 0.3, 1);
+        this.scene.clearColor = new Color4(0.15, 0.15, 0.15, 1);
 
         // Create camera with better default position
         this.camera = new ArcRotateCamera(
