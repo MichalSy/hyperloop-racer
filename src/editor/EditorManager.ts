@@ -54,6 +54,30 @@ export class EditorManager {
             }
         );
         this.setupAutoSave();
+        
+        // Add initial start segment
+        this.initializeTrackWithStartSegment();
+    }
+
+    private initializeTrackWithStartSegment() {
+        // Add a start segment at the center of the scene
+        const startPosition = new Vector3(0, 0, 0);
+        const instance = this.trackElementManager.createTrackElementInstance(
+            'start-segment',
+            startPosition,
+            new Vector3(0, 0, 0)
+        );
+        
+        if (instance) {
+            this.currentTrack.addElement(instance);
+            this.trackElementManager.selectElement(instance.id);
+            this.markModified();
+            
+            // Position camera to view the start segment
+            const camera = this.engine.getCamera();
+            camera.position = new Vector3(0, 20, -30); // Position camera above and behind start segment
+            camera.setTarget(new Vector3(0, 0, 0)); // Look at the center
+        }
     }
 
     private setupUI(container: HTMLElement) {

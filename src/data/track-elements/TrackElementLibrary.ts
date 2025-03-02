@@ -1,4 +1,4 @@
-import { Scene, Mesh } from '@babylonjs/core';
+import { Scene, Mesh, MeshBuilder, StandardMaterial, Color3 } from '@babylonjs/core';
 import { TrackElement } from '../types';
 import { DefaultTrackElements } from './default-elements';
 
@@ -36,7 +36,6 @@ export class TrackElementLibrary {
     }
 
     private loadCustomElements(): TrackElement[] {
-        // Implementation for loading custom elements
         return [];
     }
 
@@ -46,8 +45,18 @@ export class TrackElementLibrary {
             throw new Error(`Track element with id ${elementId} not found`);
         }
 
-        const mesh = new Mesh(elementId, this.scene);
-        // Setup mesh based on element properties
+        // Create box mesh based on element dimensions
+        const mesh = MeshBuilder.CreateBox(elementId, {
+            width: element.dimensions.width,
+            height: element.dimensions.height,
+            depth: element.dimensions.depth
+        }, this.scene);
+
+        // Create and apply material
+        const material = new StandardMaterial(`${elementId}-material`, this.scene);
+        material.diffuseColor = Color3.Gray();
+        mesh.material = material;
+
         return mesh;
     }
 
@@ -77,19 +86,13 @@ export class TrackElementLibrary {
     public deleteElement(id: string): boolean {
         const initialLength = this.elements.length;
         this.elements = this.elements.filter(element => element.id !== id);
-        
-        if (this.elements.length < initialLength) {
-            return true;
-        }
-        return false;
+        return this.elements.length < initialLength;
     }
 
     public saveCustomElements(): void {
-        // Skip the unused variable warning by using the filter result
-        this.elements.filter(
+        const customElements = this.elements.filter(
             element => !DefaultTrackElements.some(e => e.id === element.id)
         );
-        // Actual implementation would save custom elements to storage
-        console.log('Saving custom track elements');
+        console.log('Saving custom track elements:', customElements);
     }
 }
