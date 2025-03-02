@@ -7,6 +7,37 @@ export const DefaultTrackElements: TrackElement[] = [
 
   // Curve segment (90 degrees)
   {
+    id: 's-curve',
+    name: 'S Curve',
+    description: 'A 90-degree s curve segment',
+    containerSize: { x: 3, y: 1, z: 3 },  // 30x10x30
+    connectors: [
+      {
+        position: { x: 0, y: 0, z: 0 },
+        normal: { x: -1, y: 0, z: 0 },
+        upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Initial forward along Z axis
+        type: ConnectorType.ENTRY
+      },
+      {
+        position: { x: 10, y: 0, z: 15 },
+        normal: { x: 0, y: 0, z: 1 },
+        upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 1, y: 0, z: 0 },  // Forward along Z axis
+        type: ConnectorType.CHECKPOINT
+      },
+      {
+        position: { x: 20, y: 0, z: 30 },
+        normal: { x: 0, y: 0, z: 1 },
+        upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Final forward along X axis after curve
+        type: ConnectorType.EXIT
+      }
+    ]
+  },
+
+  // Curve segment (90 degrees)
+  {
     id: 'curve-90',
     name: 'Curve 90°',
     description: 'A 90-degree curve segment',
@@ -28,6 +59,8 @@ export const DefaultTrackElements: TrackElement[] = [
       }
     ]
   },
+
+
 
   // Straight segment
   {
