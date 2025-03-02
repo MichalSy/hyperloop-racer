@@ -32,22 +32,13 @@ export interface Vector3 {
 }
 
 /**
- * Dimensions of a track element
- */
-export interface Dimensions {
-  width: number;  // X dimension
-  height: number; // Y dimension
-  depth: number;  // Z dimension
-}
-
-/**
  * Definition of a track element
  */
 export interface TrackElement {
   id: string;
   name: string;
   description?: string;
-  dimensions: Dimensions;
+  containerSize: Vector3;  // Size in grid blocks (1,1,1 = 10x10x10 units)
   position: Vector3;
   rotation: Vector3;
   connectors: Connector[];

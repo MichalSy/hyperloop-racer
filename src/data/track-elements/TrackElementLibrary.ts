@@ -45,11 +45,11 @@ export class TrackElementLibrary {
             throw new Error(`Track element with id ${elementId} not found`);
         }
 
-        // Create box mesh based on element dimensions
+        // Create box mesh based on element size multiplied by 10
         const mesh = MeshBuilder.CreateBox(elementId, {
-            width: element.dimensions.width,
-            height: element.dimensions.height,
-            depth: element.dimensions.depth
+            width: element.containerSize.x * 10,
+            height: element.containerSize.y * 10,
+            depth: element.containerSize.z * 10
         }, this.scene);
 
         // Create and apply material
