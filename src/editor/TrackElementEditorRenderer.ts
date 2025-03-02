@@ -36,7 +36,10 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         rootMesh.position = position;
 
         const blockSize = 10;
-        const cubeScale = 1; // Mache die Würfel leicht kleiner um Überschneidungen zu vermeiden
+        const cubeScale = 1;
+        
+        // Verschiebe alle Würfel so, dass die Mitte der ersten Außenwand bei 0,0,0 liegt
+        const offset = blockSize / 2;
         
         for (let x = 0; x < this.trackElement.containerSize.x; x++) {
             for (let y = 0; y < this.trackElement.containerSize.y; y++) {
@@ -53,9 +56,9 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                         cube.material = this.debugMaterial;
                         
                         cube.position = new Vector3(
-                            (x - (this.trackElement.containerSize.x - 1) / 2) * blockSize,
-                            (y - (this.trackElement.containerSize.y - 1) / 2) * blockSize,
-                            (z - (this.trackElement.containerSize.z - 1) / 2) * blockSize
+                            x * blockSize,
+                            y * blockSize + offset,
+                            z * blockSize + blockSize 
                         );
                         
                         cube.setParent(rootMesh);
@@ -65,12 +68,12 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             }
         }
 
-        // Add connector point at 0,0,0
+        // Add connector point at 0,0,0 (now centered on the outside face of the first cube)
         const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
             diameter: 2
         }, this.scene);
         connectorSphere.material = this.connectorMaterial;
-        connectorSphere.position = new Vector3(0, 0, 0);
+        connectorSphere.position = new Vector3(0, blockSize/2, blockSize/2); // Zentriert auf der Außenfläche
         connectorSphere.setParent(rootMesh);
         this.meshes.push(connectorSphere);
 
