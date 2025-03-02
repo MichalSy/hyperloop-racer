@@ -6,6 +6,7 @@ export class TrackElementRenderer {
     protected trackElement: TrackElement;
     protected mesh: Mesh | null = null;
     protected material: StandardMaterial;
+    protected containerMesh: Mesh | null = null;
 
     constructor(scene: Scene, trackElement: TrackElement) {
         this.scene = scene;
@@ -14,6 +15,13 @@ export class TrackElementRenderer {
         // Create default material
         this.material = new StandardMaterial(`${trackElement.id}-material`, scene);
         this.material.diffuseColor = Color3.Gray();
+    }
+
+    protected getContainerMesh(): Mesh {
+        if (!this.containerMesh) {
+            this.containerMesh = new Mesh("container", this.scene);
+        }
+        return this.containerMesh;
     }
 
     public render(position: Vector3): Mesh {
@@ -43,6 +51,10 @@ export class TrackElementRenderer {
         if (this.mesh) {
             this.mesh.dispose();
             this.mesh = null;
+        }
+        if (this.containerMesh) {
+            this.containerMesh.dispose();
+            this.containerMesh = null;
         }
         if (this.material) {
             this.material.dispose();

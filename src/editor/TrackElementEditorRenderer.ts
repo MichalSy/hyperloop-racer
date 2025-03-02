@@ -237,8 +237,10 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     }
 
     public render(): Mesh {
-        const containerMesh = new Mesh("container", this.scene);
-
+        // Call parent's render method first to create the basic mesh
+        super.render(Vector3.Zero());
+        
+        const containerMesh = this.getContainerMesh();
         const blockSize = 10;
         const cubeScale = 1;
 
