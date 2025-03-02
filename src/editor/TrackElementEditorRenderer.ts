@@ -6,7 +6,9 @@ import { TextureManager } from '../manager/TextureManager';
 export class TrackElementEditorRenderer extends TrackElementRenderer {
     private debugMaterial: StandardMaterial;
     private connectorMaterial: StandardMaterial;
+    private checkpointMaterial: StandardMaterial;
     private entryConnectorMaterial: StandardMaterial;
+    private exitConnectorMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
     private cubeConnectorMap: Map<Mesh, Mesh[]> = new Map();
     private connectorToCubesMap: Map<Mesh, Mesh[]> = new Map();
@@ -28,15 +30,25 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.debugMaterial.alphaMode = Engine.ALPHA_COMBINE;
         this.debugMaterial.separateCullingPass = true;
 
-        // Create standard connector material
+        // Create white material for default connectors
         this.connectorMaterial = new StandardMaterial("connector-material", scene);
         this.connectorMaterial.diffuseColor = Color3.White();
         this.connectorMaterial.emissiveColor = Color3.White();
+
+        // Create checkpoint material (blue)
+        this.checkpointMaterial = new StandardMaterial("checkpoint-material", scene);
+        this.checkpointMaterial.diffuseColor = Color3.Blue();
+        this.checkpointMaterial.emissiveColor = Color3.Blue();
 
         // Create entry connector material (green)
         this.entryConnectorMaterial = new StandardMaterial("entry-connector-material", scene);
         this.entryConnectorMaterial.diffuseColor = Color3.Green();
         this.entryConnectorMaterial.emissiveColor = Color3.Green();
+
+        // Create exit connector material (red)
+        this.exitConnectorMaterial = new StandardMaterial("exit-connector-material", scene);
+        this.exitConnectorMaterial.diffuseColor = Color3.Red();
+        this.exitConnectorMaterial.emissiveColor = Color3.Red();
     }
 
     private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh, connectorType?: ConnectorType): Mesh {
@@ -44,13 +56,29 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             diameter: 1
         }, this.scene);
 
-        // Set material based on connector type
-        if (connectorType === ConnectorType.ENTRY) {
-            connectorSphere.material = this.entryConnectorMaterial;
-            connectorSphere.visibility = 1; // Always visible for entry connectors
+        if (connectorType) {
+            // Set material and visibility based on connector type
+            switch (connectorType) {
+                case ConnectorType.ENTRY:
+                    connectorSphere.material = this.entryConnectorMaterial;
+                    connectorSphere.visibility = 1;
+                    break;
+                case ConnectorType.EXIT:
+                    connectorSphere.material = this.exitConnectorMaterial;
+                    connectorSphere.visibility = 1;
+                    break;
+                case ConnectorType.CHECKPOINT:
+                    connectorSphere.material = this.checkpointMaterial;
+                    connectorSphere.visibility = 1;
+                    break;
+                default:
+                    connectorSphere.material = this.connectorMaterial;
+                    connectorSphere.visibility = 0;
+            }
         } else {
+            // Default white connectors are hidden by default
             connectorSphere.material = this.connectorMaterial;
-            connectorSphere.visibility = 0; // Hidden by default for other connectors
+            connectorSphere.visibility = 0;
         }
 
         connectorSphere.position = position;
@@ -58,15 +86,12 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
 
         this.meshes.push(connectorSphere);
 
-        // If this connector belongs to a cube, store it in both maps
         if (parentCube) {
-            // Add to cube -> connectors map
             if (!this.cubeConnectorMap.has(parentCube)) {
                 this.cubeConnectorMap.set(parentCube, []);
             }
             this.cubeConnectorMap.get(parentCube)!.push(connectorSphere);
 
-            // Add to connector -> cubes map
             if (!this.connectorToCubesMap.has(connectorSphere)) {
                 this.connectorToCubesMap.set(connectorSphere, []);
             }
@@ -100,11 +125,14 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             new ExecuteCodeAction(
                 ActionManager.OnPointerOverTrigger,
                 () => {
+                    // Markiere den Würfel als "gehovert"
+                    cube.metadata = { ...cube.metadata, isHovered: true };
+                    
                     const connectors = this.cubeConnectorMap.get(cube);
                     if (connectors) {
                         connectors.forEach(connector => {
-                            // Nur anzeigen wenn es kein ENTRY-Konnektor ist (diese sind immer sichtbar)
-                            if (connector.material !== this.entryConnectorMaterial) {
+                            // Nur weiße (Standard) Connectoren ein/ausblenden
+                            if (connector.material === this.connectorMaterial) {
                                 connector.visibility = 1;
                             }
                         });
@@ -118,21 +146,25 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             new ExecuteCodeAction(
                 ActionManager.OnPointerOutTrigger,
                 () => {
+                    // Entferne den "gehovert" Status
+                    if (cube.metadata) {
+                        cube.metadata.isHovered = false;
+                    }
+
                     const connectors = this.cubeConnectorMap.get(cube);
                     if (connectors) {
                         connectors.forEach(connector => {
-                            // Nur ausblenden wenn es kein ENTRY-Konnektor ist
-                            if (connector.material !== this.entryConnectorMaterial) {
-                                // Only hide if no other hovered cube uses this connector
+                            // Nur weiße (Standard) Connectoren ein/ausblenden
+                            if (connector.material === this.connectorMaterial) {
+                                // Prüfe, ob irgendein verbundener Würfel noch gehovert ist
                                 const relatedCubes = this.connectorToCubesMap.get(connector);
-                                const otherCubesHovered = relatedCubes?.some(relatedCube => 
+                                const anyRelatedCubeHovered = relatedCubes?.some(relatedCube => 
                                     relatedCube !== cube && 
-                                    relatedCube.isEnabled() && 
-                                    !!relatedCube.actionManager && 
-                                    relatedCube.actionManager.hoverCursor !== ''
+                                    relatedCube.isEnabled() &&
+                                    relatedCube.metadata?.isHovered
                                 );
                                 
-                                if (!otherCubesHovered) {
+                                if (!anyRelatedCubeHovered) {
                                     connector.visibility = 0;
                                 }
                             }
@@ -261,6 +293,8 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.meshes = [];
         this.debugMaterial.dispose();
         this.connectorMaterial.dispose();
+        this.checkpointMaterial.dispose();
         this.entryConnectorMaterial.dispose();
+        this.exitConnectorMaterial.dispose();
     }
 }

@@ -6,7 +6,7 @@ import { PhysicsSystem } from "../engine/PhysicsSystem";
 import { generateUUID } from "../utils/helpers";
 import { TrackElementInstance } from "../data/types";
 
-type SelectionCallback = (instanceId: string, connectorId?: string) => void;
+type SelectionCallback = (instanceId: string) => void;
 
 export class TrackEditor {
     private engine: BabylonEngine;
@@ -61,29 +61,17 @@ export class TrackEditor {
 
         const instanceId = mesh.name.replace('track-element-', '');
         this.selectedInstance = this.instances.find(i => i.id === instanceId) || null;
-        
+
         if (this.onSelectionChange) {
             this.onSelectionChange(instanceId);
         }
     }
 
     private initializeTrackWithStartSegment() {
-        const startPosition = new Vector3(0, 0, 0);
-        const instance = this.createTrackElementInstance(
-            'start-segment',
-            startPosition,
-            new Vector3(0, 0, 0)
-        );
-        
-        if (instance) {
-            this.currentTrack.addElement(instance);
-            this.selectElement(instance.id);
-            this.markModified();
-            
-            const camera = this.engine.getCamera();
-            camera.position = new Vector3(45, 60, -70);
-            camera.setTarget(new Vector3(0, 0, 0));
-        }
+
+        const camera = this.engine.getCamera();
+        camera.position = new Vector3(45, 60, -70);
+        camera.setTarget(new Vector3(0, 0, 0));
     }
 
     public createTrackElementInstance(elementId: string, position: Vector3, rotation: Vector3): TrackElementInstance {
@@ -215,7 +203,7 @@ export class TrackEditor {
 
     public updateFromTrack(elements: TrackElementInstance[]): void {
         this.clearAllElements();
-        
+
         elements.forEach(element => {
             const position = new Vector3(
                 element.position.x,
@@ -233,7 +221,7 @@ export class TrackEditor {
 
     public clearAllElements(): void {
         this.clearSelection();
-        
+
         this.instances.forEach(instance => {
             const mesh = this.scene.getMeshByName(`track-element-${instance.id}`);
             if (mesh) {

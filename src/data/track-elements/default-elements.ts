@@ -18,6 +18,12 @@ export const DefaultTrackElements: TrackElement[] = [
         type: ConnectorType.ENTRY
       },
       {
+        position: { x: 0, y: 0, z: 15 },
+        normal: { x: 0, y: 0, z: 1 },
+        upVector: { x: 0, y: 1, z: 0 },
+        type: ConnectorType.CHECKPOINT
+      },
+      {
         position: { x: 0, y: 0, z: 30 },
         normal: { x: 0, y: 0, z: 1 },
         upVector: { x: 0, y: 1, z: 0 },
@@ -25,119 +31,22 @@ export const DefaultTrackElements: TrackElement[] = [
       }
     ]
   },
-  
+
   // Curve segment (90 degrees)
   {
     id: 'curve-90',
     name: 'Curve 90°',
     description: 'A 90-degree curve segment',
-    containerSize: { x: 3, y: 1, z: 3 },  // 30x10x30
+    containerSize: { x: 2, y: 1, z: 2 },  // 30x10x30
     connectors: [
       {
-        position: { x: -15, y: 0, z: 0 },
+        position: { x: 0, y: 0, z: 0 },
         normal: { x: -1, y: 0, z: 0 },
         upVector: { x: 0, y: 1, z: 0 },
         type: ConnectorType.ENTRY
       },
       {
-        position: { x: 0, y: 0, z: 15 },
-        normal: { x: 0, y: 0, z: 1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.EXIT
-      }
-    ]
-  },
-  
-  // Loop segment
-  {
-    id: 'loop',
-    name: 'Loop',
-    description: 'A vertical loop segment',
-    containerSize: { x: 1, y: 4, z: 6 },  // 10x40x60
-    connectors: [
-      {
-        position: { x: 0, y: 0, z: -30 },
-        normal: { x: 0, y: 0, z: -1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.ENTRY
-      },
-      {
-        position: { x: 0, y: 0, z: 30 },
-        normal: { x: 0, y: 0, z: 1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.EXIT
-      }
-    ]
-  },
-  
-  // Ramp segment
-  {
-    id: 'ramp',
-    name: 'Ramp',
-    containerSize: { x: 1, y: 2, z: 3 },  // 10x20x30
-    connectors: [
-      {
-        position: { x: 0, y: 0, z: -15 },
-        normal: { x: 0, y: 0, z: -1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.ENTRY
-      },
-      {
-        position: { x: 0, y: 15, z: 15 },
-        normal: { x: 0, y: 0.5, z: 0.866 },
-        upVector: { x: 0, y: 0.866, z: -0.5 },
-        type: ConnectorType.EXIT
-      }
-    ]
-  },
-  
-  // Start segment with checkpoint
-  {
-    id: 'start-segment',
-    name: 'Start Segment',
-    containerSize: { x: 1.5, y: 1, z: 3 },  // 15x10x30
-    connectors: [
-      {
-        position: { x: 0, y: 0, z: -15 },
-        normal: { x: 0, y: 0, z: -1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.ENTRY
-      },
-      {
-        position: { x: 0, y: 0, z: 0 },
-        normal: { x: 0, y: 1, z: 0 },
-        upVector: { x: 0, y: 0, z: 1 },
-        type: ConnectorType.CHECKPOINT
-      },
-      {
-        position: { x: 0, y: 0, z: 15 },
-        normal: { x: 0, y: 0, z: 1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.EXIT
-      }
-    ]
-  },
-  
-  // Finish segment with checkpoint
-  {
-    id: 'finish-segment',
-    name: 'Finish Segment',
-    containerSize: { x: 1.5, y: 1, z: 3 },  // 15x10x30
-    connectors: [
-      {
-        position: { x: 0, y: 0, z: -15 },
-        normal: { x: 0, y: 0, z: -1 },
-        upVector: { x: 0, y: 1, z: 0 },
-        type: ConnectorType.ENTRY
-      },
-      {
-        position: { x: 0, y: 0, z: 0 },
-        normal: { x: 0, y: 1, z: 0 },
-        upVector: { x: 0, y: 0, z: 1 },
-        type: ConnectorType.CHECKPOINT
-      },
-      {
-        position: { x: 0, y: 0, z: 15 },
+        position: { x: 15, y: 0, z: 15 },
         normal: { x: 0, y: 0, z: 1 },
         upVector: { x: 0, y: 1, z: 0 },
         type: ConnectorType.EXIT
