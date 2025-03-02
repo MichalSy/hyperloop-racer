@@ -103,6 +103,15 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                             cubePosition.z + connectorOffset
                         ), containerMesh);
 
+                        // Add back center connector point (at z=0 side)
+                        if (!this.hasAdjacentCube(x, y, z - 1)) {
+                            this.createConnectorPoint(new Vector3(
+                                cubePosition.x,
+                                cubePosition.y,
+                                cubePosition.z - connectorOffset
+                            ), containerMesh);
+                        }
+
                         // Add side connector points only if there's no adjacent cube
                         // Left connector
                         if (!this.hasAdjacentCube(x - 1, y, z)) {
