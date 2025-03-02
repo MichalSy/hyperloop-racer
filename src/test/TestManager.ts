@@ -93,6 +93,32 @@ export class TestManager {
    */
   private setupTestMode() {
     // TODO: Add event listeners for keyboard controls
+
+    // Lade ein Demo-Track
+const demoTrack: Track = {
+    id: 'demo-track',
+    name: 'Demo Track',
+    author: 'System',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    elements: [
+      {
+        elementId: 'straight-segment',
+        position: { x: 0, y: 0, z: 0 },
+        rotation: { x: 0, y: 0, z: 0 },
+        connectors: {}
+      },
+      {
+        elementId: 'curve-90',
+        position: { x: 0, y: 0, z: 30 },
+        rotation: { x: 0, y: 0, z: 0 },
+        connectors: {}
+      }
+    ],
+    bestTimes: []
+  };
+  
+  this.loadTrack(demoTrack);
     
     // Add render loop hook for game logic
     const scene = this.engine.getScene();
@@ -220,15 +246,33 @@ export class TestManager {
  * @param container The container element
  */
 export async function initializeTestMode(container: HTMLElement): Promise<void> {
-  console.log('Initializing test mode...');
-  
-  // Clear container
-  container.innerHTML = '';
-  
-  // Create and initialize the test manager
-  const testManager = new TestManager(container);
-  
-  // TODO: Load track from URL parameter or storage
-  
-  return Promise.resolve();
-}
+    console.log('Initializing test mode...');
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    // Create and initialize the test manager
+    const testManager = new TestManager(container);
+    
+    // Lade eine Demo-Strecke
+    const demoTrack: Track = {
+      id: 'demo-track',
+      name: 'Demo Track',
+      author: 'System',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      elements: [
+        {
+          elementId: 'straight-segment',
+          position: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          connectors: {}
+        }
+      ],
+      bestTimes: []
+    };
+    
+    testManager.loadTrack(demoTrack);
+    
+    return Promise.resolve();
+  }
