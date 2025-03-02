@@ -1,11 +1,12 @@
 import { Scene, Mesh, StandardMaterial, Vector3, MeshBuilder, Color3, Engine, ActionManager, ExecuteCodeAction } from '@babylonjs/core';
-import { TrackElement } from '../data/types';
+import { TrackElement, ConnectorType } from '../data/types';
 import { TrackElementRenderer } from '../editor/TrackElementRenderer';
 import { TextureManager } from '../manager/TextureManager';
 
 export class TrackElementEditorRenderer extends TrackElementRenderer {
     private debugMaterial: StandardMaterial;
     private connectorMaterial: StandardMaterial;
+    private entryConnectorMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
     private cubeConnectorMap: Map<Mesh, Mesh[]> = new Map();
     private connectorToCubesMap: Map<Mesh, Mesh[]> = new Map();
@@ -27,20 +28,33 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.debugMaterial.alphaMode = Engine.ALPHA_COMBINE;
         this.debugMaterial.separateCullingPass = true;
 
-        // Create connector material
+        // Create standard connector material
         this.connectorMaterial = new StandardMaterial("connector-material", scene);
         this.connectorMaterial.diffuseColor = Color3.White();
         this.connectorMaterial.emissiveColor = Color3.White();
+
+        // Create entry connector material (green)
+        this.entryConnectorMaterial = new StandardMaterial("entry-connector-material", scene);
+        this.entryConnectorMaterial.diffuseColor = Color3.Green();
+        this.entryConnectorMaterial.emissiveColor = Color3.Green();
     }
 
-    private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh): Mesh {
+    private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh, connectorType?: ConnectorType): Mesh {
         const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
             diameter: 1
         }, this.scene);
-        connectorSphere.material = this.connectorMaterial;
+
+        // Set material based on connector type
+        if (connectorType === ConnectorType.ENTRY) {
+            connectorSphere.material = this.entryConnectorMaterial;
+            connectorSphere.visibility = 1; // Always visible for entry connectors
+        } else {
+            connectorSphere.material = this.connectorMaterial;
+            connectorSphere.visibility = 0; // Hidden by default for other connectors
+        }
+
         connectorSphere.position = position;
         connectorSphere.setParent(parent);
-        connectorSphere.visibility = 0; // Hide by default
 
         this.meshes.push(connectorSphere);
 
@@ -89,7 +103,10 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                     const connectors = this.cubeConnectorMap.get(cube);
                     if (connectors) {
                         connectors.forEach(connector => {
-                            connector.visibility = 1;
+                            // Nur anzeigen wenn es kein ENTRY-Konnektor ist (diese sind immer sichtbar)
+                            if (connector.material !== this.entryConnectorMaterial) {
+                                connector.visibility = 1;
+                            }
                         });
                     }
                 }
@@ -104,17 +121,20 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                     const connectors = this.cubeConnectorMap.get(cube);
                     if (connectors) {
                         connectors.forEach(connector => {
-                            // Only hide if no other hovered cube uses this connector
-                            const relatedCubes = this.connectorToCubesMap.get(connector);
-                            const otherCubesHovered = relatedCubes?.some(relatedCube => 
-                                relatedCube !== cube && 
-                                relatedCube.isEnabled() && 
-                                !!relatedCube.actionManager && 
-                                relatedCube.actionManager.hoverCursor !== ''
-                            );
-                            
-                            if (!otherCubesHovered) {
-                                connector.visibility = 0;
+                            // Nur ausblenden wenn es kein ENTRY-Konnektor ist
+                            if (connector.material !== this.entryConnectorMaterial) {
+                                // Only hide if no other hovered cube uses this connector
+                                const relatedCubes = this.connectorToCubesMap.get(connector);
+                                const otherCubesHovered = relatedCubes?.some(relatedCube => 
+                                    relatedCube !== cube && 
+                                    relatedCube.isEnabled() && 
+                                    !!relatedCube.actionManager && 
+                                    relatedCube.actionManager.hoverCursor !== ''
+                                );
+                                
+                                if (!otherCubesHovered) {
+                                    connector.visibility = 0;
+                                }
                             }
                         });
                     }
@@ -130,10 +150,16 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
 
         const blockSize = 10;
         const cubeScale = 1;
-        const connectorOffset = 5; // Half of blockSize
 
-        // Add origin point (0,0,0)
-        this.createConnectorPoint(new Vector3(0, 0, 0), containerMesh);
+        // Create element-defined connectors first
+        this.trackElement.connectors.forEach(connector => {
+            const connectorPos = new Vector3(
+                connector.position.x,
+                connector.position.y,
+                connector.position.z
+            );
+            this.createConnectorPoint(connectorPos, containerMesh, undefined, connector.type);
+        });
         
         // Calculate total dimensions for centering
         const totalWidth = this.trackElement.containerSize.x * blockSize;
@@ -142,7 +168,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         
         const connectorPositions = new Map<string, Mesh>();
 
-        // Create and position cubes relative to container center
+        // Create debug visualization cubes
         for (let x = 0; x < this.trackElement.containerSize.x; x++) {
             for (let y = 0; y < this.trackElement.containerSize.y; y++) {
                 for (let z = 0; z < this.trackElement.containerSize.z; z++) {
@@ -167,8 +193,22 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                         cube.setParent(containerMesh);
                         this.meshes.push(cube);
 
-                        // Setup hover events for this cube
                         this.setupCubeHoverEvents(cube);
+
+                        // Helper function to check if a position matches any track element connector
+                        const isTrackElementConnector = (position: Vector3): { isConnector: boolean, type?: ConnectorType } => {
+                            for (const connector of this.trackElement.connectors) {
+                                const connectorPos = new Vector3(
+                                    connector.position.x,
+                                    connector.position.y,
+                                    connector.position.z
+                                );
+                                if (connectorPos.equals(position)) {
+                                    return { isConnector: true, type: connector.type };
+                                }
+                            }
+                            return { isConnector: false };
+                        };
 
                         // Helper function to create or share connector
                         const createOrShareConnector = (position: Vector3): void => {
@@ -176,23 +216,27 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                             const existingConnector = connectorPositions.get(key);
                             
                             if (existingConnector) {
-                                // Share existing connector
                                 this.addSharedConnector(existingConnector, cube);
                             } else {
-                                // Create new connector
-                                const connector = this.createConnectorPoint(position, containerMesh, cube);
+                                const connectorCheck = isTrackElementConnector(position);
+                                const connector = this.createConnectorPoint(
+                                    position,
+                                    containerMesh,
+                                    cube,
+                                    connectorCheck.type
+                                );
                                 connectorPositions.set(key, connector);
                             }
                         };
 
-                        // Add all connector points
-                        createOrShareConnector(cubePosition.clone()); // Center
-                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, connectorOffset))); // Forward
-                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, -connectorOffset))); // Back
-                        createOrShareConnector(cubePosition.add(new Vector3(-connectorOffset, 0, 0))); // Left
-                        createOrShareConnector(cubePosition.add(new Vector3(connectorOffset, 0, 0))); // Right
-                        createOrShareConnector(cubePosition.add(new Vector3(0, connectorOffset, 0))); // Top
-                        createOrShareConnector(cubePosition.add(new Vector3(0, -connectorOffset, 0))); // Bottom
+                        // Add connector points at cube corners
+                        createOrShareConnector(cubePosition.clone());
+                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, blockSize/2))); // Forward
+                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, -blockSize/2))); // Back
+                        createOrShareConnector(cubePosition.add(new Vector3(-blockSize/2, 0, 0))); // Left
+                        createOrShareConnector(cubePosition.add(new Vector3(blockSize/2, 0, 0))); // Right
+                        createOrShareConnector(cubePosition.add(new Vector3(0, blockSize/2, 0))); // Top
+                        createOrShareConnector(cubePosition.add(new Vector3(0, -blockSize/2, 0))); // Bottom
                     }
                 }
             }
@@ -217,5 +261,6 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.meshes = [];
         this.debugMaterial.dispose();
         this.connectorMaterial.dispose();
+        this.entryConnectorMaterial.dispose();
     }
 }
