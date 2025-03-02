@@ -7,6 +7,11 @@ import { Track } from "../data/Track";
 import { AppConfig } from '../config/AppConfig';
 import { TrackData } from '../data/types';
 
+enum EditorMode {
+    TrackElementEditor = 'TrackElementEditor',
+    TrackBuilder = 'TrackBuilder'
+}
+
 /**
  * EditorManager handles the track editor functionality
  */
@@ -16,19 +21,25 @@ export class EditorManager {
     private canvas!: HTMLCanvasElement;
     private elementPanel!: HTMLElement;
     private propertiesPanel!: HTMLElement;
+    private modeToggleButton!: HTMLElement;
     private trackElementManager!: TrackElementManager;
     private trackElementLibrary!: TrackElementLibrary;
     private physicsSystem!: PhysicsSystem;
     private currentTrack!: Track;
     private autoSaveTimer: number | null = null;
     private isModified: boolean = false;
+    private currentMode: EditorMode = EditorMode.TrackElementEditor;
+    private activeElementId: string | null = null;
 
     constructor(container: HTMLElement) {
         this.initialize(container);
     }
 
     private async initialize(container: HTMLElement) {
-        this.setupUI(container);
+        // Create canvas first
+        this.setupCanvas(container);
+        
+        // Initialize engine and core components
         this.engine = new BabylonEngine(this.canvas);
         this.physicsSystem = new PhysicsSystem(this.engine.getScene());
         this.trackElementLibrary = TrackElementLibrary.getInstance(
@@ -41,11 +52,12 @@ export class EditorManager {
         );
         this.currentTrack = new Track();
 
-        // Move setupPanels here after trackElementLibrary is initialized
+        // Setup rest of UI and initialize editor
+        this.setupUI(container);
         this.setupPanels();
-        
         this.setupEventListeners();
         this.populateElementPanel();
+        
         this.trackElementManager.setOnSelectionChangeCallback(
             (instanceId: string, connectorId?: string) => {
                 if (instanceId) {
@@ -55,8 +67,24 @@ export class EditorManager {
         );
         this.setupAutoSave();
         
+        // Update UI for initial mode
+        this.updateUIForMode();
+        
         // Add initial start segment
         this.initializeTrackWithStartSegment();
+    }
+
+    private setupCanvas(container: HTMLElement) {
+        // Create canvas container
+        this.canvasContainer = document.createElement('div');
+        this.canvasContainer.className = 'canvas-container';
+        
+        // Create canvas
+        this.canvas = document.createElement('canvas');
+        this.canvas.className = 'editor-canvas';
+        
+        // Add canvas to container
+        this.canvasContainer.appendChild(this.canvas);
     }
 
     private initializeTrackWithStartSegment() {
@@ -85,32 +113,59 @@ export class EditorManager {
         const editorContainer = document.createElement('div');
         editorContainer.className = 'editor-container';
         
+        // Create mode toggle button
+        this.modeToggleButton = document.createElement('button');
+        this.modeToggleButton.className = 'mode-toggle-button';
+        
         // Create editor main section
         const editorMain = document.createElement('div');
         editorMain.className = 'editor-main';
         
-        // Create panels and canvas
+        // Create panels
         this.elementPanel = document.createElement('div');
         this.elementPanel.className = 'element-panel';
         this.elementPanel.innerHTML = '<h3>Track Elements</h3>';
-        
-        this.canvasContainer = document.createElement('div');
-        this.canvasContainer.className = 'canvas-container';
-        
-        this.canvas = document.createElement('canvas');
-        this.canvas.className = 'editor-canvas';
         
         this.propertiesPanel = document.createElement('div');
         this.propertiesPanel.className = 'properties-panel';
         this.propertiesPanel.innerHTML = '<h3>Properties</h3>';
         
         // Assemble the structure
-        this.canvasContainer.appendChild(this.canvas);
+        editorMain.appendChild(this.modeToggleButton);
         editorMain.appendChild(this.elementPanel);
         editorMain.appendChild(this.canvasContainer);
         editorMain.appendChild(this.propertiesPanel);
         editorContainer.appendChild(editorMain);
         container.appendChild(editorContainer);
+
+        // Update mode toggle button text
+        this.updateModeToggleButton();
+    }
+
+    private updateModeToggleButton() {
+        const nextMode = this.currentMode === EditorMode.TrackElementEditor 
+            ? EditorMode.TrackBuilder 
+            : EditorMode.TrackElementEditor;
+        
+        this.modeToggleButton.textContent = `Switch to ${nextMode === EditorMode.TrackElementEditor ? 'Element Editor' : 'Track Builder'}`;
+    }
+
+    private updateUIForMode() {
+        if (this.currentMode === EditorMode.TrackElementEditor) {
+            this.elementPanel.style.display = 'block';
+            this.trackElementManager.clearAllElements();
+            
+            // Load first track element if none is selected
+            const elements = this.trackElementLibrary.getAllElements();
+            if (elements.length > 0 && !this.activeElementId) {
+                this.showTrackElement(elements[0].id);
+            }
+        } else {
+            this.elementPanel.style.display = 'none';
+            // Clear selection when switching to track builder
+            this.trackElementManager.clearSelection();
+        }
+        this.updateModeToggleButton();
     }
 
     private setupPanels() {
@@ -139,6 +194,14 @@ export class EditorManager {
             }
         });
 
+        // Add mode toggle handler
+        this.modeToggleButton.addEventListener('click', () => {
+            this.currentMode = this.currentMode === EditorMode.TrackElementEditor 
+                ? EditorMode.TrackBuilder 
+                : EditorMode.TrackElementEditor;
+            this.updateUIForMode();
+        });
+
         // Add element panel click handlers
         this.elementPanel.addEventListener('click', (e) => {
             const elementItem = (e.target as HTMLElement).closest('.element-item');
@@ -158,15 +221,18 @@ export class EditorManager {
     }
 
     private handleElementSelection(elementId: string) {
-        const element = this.trackElementLibrary.getElementById(elementId);
-        if (element) {
-            // Convert position to BabylonJS Vector3
-            const position = new Vector3(
-                element.position.x,
-                element.position.y,
-                element.position.z
-            );
-            this.trackElementManager.moveElement(elementId, position);
+        if (this.currentMode === EditorMode.TrackElementEditor) {
+            this.showTrackElement(elementId);
+        } else {
+            const element = this.trackElementLibrary.getElementById(elementId);
+            if (element) {
+                const position = new Vector3(
+                    element.position.x,
+                    element.position.y,
+                    element.position.z
+                );
+                this.trackElementManager.moveElement(elementId, position);
+            }
         }
     }
 
@@ -192,20 +258,20 @@ export class EditorManager {
         elements.forEach((element: any) => {
             const elementItem = document.createElement('div');
             elementItem.className = 'element-item';
+            if (element.id === this.activeElementId) {
+                elementItem.classList.add('active');
+            }
             elementItem.dataset.elementId = element.id;
             
             // Create thumbnail or icon
             const thumbnail = document.createElement('div');
             thumbnail.className = 'element-thumbnail';
             
-            // Visualization of the element shape based on dimensions
+            // Visualization of the element
             const shape = document.createElement('div');
             shape.className = 'element-shape';
-            // Position und Rotation statt Dimensionen verwenden
-            shape.style.width = '40px';  // Standard-Größe
+            shape.style.width = '40px';
             shape.style.height = '40px';
-            shape.style.transform = `translate3d(${element.position.x}px, ${element.position.y}px, ${element.position.z}px) 
-                                   rotate3d(${element.rotation.x}rad, ${element.rotation.y}rad, ${element.rotation.z}rad)`;
             thumbnail.appendChild(shape);
             
             // Create element name
@@ -216,24 +282,46 @@ export class EditorManager {
             elementItem.appendChild(thumbnail);
             elementItem.appendChild(name);
             
-            // Set up drag and drop
-            elementItem.draggable = true;
-            elementItem.addEventListener('dragstart', (event) => {
-                if (event.dataTransfer) {
-                    event.dataTransfer.setData('text/plain', element.id);
-                    event.dataTransfer.effectAllowed = 'copy';
-                }
-            });
-            
-            // Add click handler to add the element
+            // Add click handler to show the element
             elementItem.addEventListener('click', () => {
-                this.addTrackElement(element.id);
+                this.showTrackElement(element.id);
             });
             
             elementList.appendChild(elementItem);
         });
         
         this.elementPanel.appendChild(elementList);
+    }
+
+    private showTrackElement(elementId: string) {
+        // Clear any existing elements in editor mode
+        if (this.currentMode === EditorMode.TrackElementEditor) {
+            this.trackElementManager.clearAllElements();
+        }
+        
+        // Create new element at camera target position
+        const camera = this.engine.getCamera();
+        const position = camera.target.clone();
+        
+        const instance = this.trackElementManager.createTrackElementInstance(
+            elementId,
+            position,
+            new Vector3(0, 0, 0)
+        );
+        
+        if (instance) {
+            this.trackElementManager.selectElement(instance.id);
+            this.activeElementId = elementId;
+            
+            // Update element panel to show active state
+            const elements = this.elementPanel.querySelectorAll('.element-item');
+            elements.forEach(el => {
+                el.classList.remove('active');
+                if (el.getAttribute('data-element-id') === elementId) {
+                    el.classList.add('active');
+                }
+            });
+        }
     }
 
     private updatePropertiesPanel(instanceId: string | null, connectorId: string | null) {

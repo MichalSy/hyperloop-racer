@@ -179,4 +179,18 @@ export class TrackElementManager {
             this.createTrackElementInstance(element.elementId, position, rotation);
         });
     }
+
+    public clearAllElements(): void {
+        // Clear selection first
+        this.clearSelection();
+        
+        // Remove all meshes
+        this.instances.forEach(instance => {
+            const mesh = this.scene.getMeshByName(`track-element-${instance.id}`);
+            if (mesh) {
+                mesh.dispose();
+            }
+        });
+        this.instances = [];
+    }
 }
