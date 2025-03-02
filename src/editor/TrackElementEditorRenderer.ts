@@ -1,4 +1,4 @@
-import { Scene, Mesh, StandardMaterial, Vector3, MeshBuilder, Color3, Engine } from '@babylonjs/core';
+import { Scene, Mesh, StandardMaterial, Vector3, MeshBuilder, Color3, Engine, ActionManager, ExecuteCodeAction } from '@babylonjs/core';
 import { TrackElement } from '../data/types';
 import { TrackElementRenderer } from '../editor/TrackElementRenderer';
 import { TextureManager } from '../manager/TextureManager';
@@ -7,6 +7,8 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     private debugMaterial: StandardMaterial;
     private connectorMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
+    private cubeConnectorMap: Map<Mesh, Mesh[]> = new Map();
+    private connectorToCubesMap: Map<Mesh, Mesh[]> = new Map();
 
     constructor(scene: Scene, trackElement: TrackElement) {
         super(scene, trackElement);
@@ -31,20 +33,94 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.connectorMaterial.emissiveColor = Color3.White();
     }
 
-    private createConnectorPoint(position: Vector3, parent: Mesh): void {
+    private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh): Mesh {
         const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
             diameter: 1
         }, this.scene);
         connectorSphere.material = this.connectorMaterial;
         connectorSphere.position = position;
         connectorSphere.setParent(parent);
+        connectorSphere.visibility = 0; // Hide by default
+
         this.meshes.push(connectorSphere);
+
+        // If this connector belongs to a cube, store it in both maps
+        if (parentCube) {
+            // Add to cube -> connectors map
+            if (!this.cubeConnectorMap.has(parentCube)) {
+                this.cubeConnectorMap.set(parentCube, []);
+            }
+            this.cubeConnectorMap.get(parentCube)!.push(connectorSphere);
+
+            // Add to connector -> cubes map
+            if (!this.connectorToCubesMap.has(connectorSphere)) {
+                this.connectorToCubesMap.set(connectorSphere, []);
+            }
+            this.connectorToCubesMap.get(connectorSphere)!.push(parentCube);
+        }
+
+        return connectorSphere;
     }
 
-    private hasAdjacentCube(x: number, y: number, z: number): boolean {
-        return x >= 0 && x < this.trackElement.containerSize.x &&
-               y >= 0 && y < this.trackElement.containerSize.y &&
-               z >= 0 && z < this.trackElement.containerSize.z;
+    private addSharedConnector(existingConnector: Mesh, newCube: Mesh): void {
+        // Add the new cube to the connector's cube list
+        if (!this.connectorToCubesMap.has(existingConnector)) {
+            this.connectorToCubesMap.set(existingConnector, []);
+        }
+        this.connectorToCubesMap.get(existingConnector)!.push(newCube);
+
+        // Add the connector to the new cube's connector list
+        if (!this.cubeConnectorMap.has(newCube)) {
+            this.cubeConnectorMap.set(newCube, []);
+        }
+        this.cubeConnectorMap.get(newCube)!.push(existingConnector);
+    }
+
+    private setupCubeHoverEvents(cube: Mesh): void {
+        if (!cube.actionManager) {
+            cube.actionManager = new ActionManager(this.scene);
+        }
+
+        // Show connectors on hover
+        cube.actionManager.registerAction(
+            new ExecuteCodeAction(
+                ActionManager.OnPointerOverTrigger,
+                () => {
+                    const connectors = this.cubeConnectorMap.get(cube);
+                    if (connectors) {
+                        connectors.forEach(connector => {
+                            connector.visibility = 1;
+                        });
+                    }
+                }
+            )
+        );
+
+        // Hide connectors when hover ends
+        cube.actionManager.registerAction(
+            new ExecuteCodeAction(
+                ActionManager.OnPointerOutTrigger,
+                () => {
+                    const connectors = this.cubeConnectorMap.get(cube);
+                    if (connectors) {
+                        connectors.forEach(connector => {
+                            // Only hide if no other hovered cube uses this connector
+                            const relatedCubes = this.connectorToCubesMap.get(connector);
+                            const otherCubesHovered = relatedCubes?.some(relatedCube => 
+                                relatedCube !== cube && 
+                                relatedCube.isEnabled() && 
+                                !!relatedCube.actionManager && 
+                                relatedCube.actionManager.hoverCursor !== ''
+                            );
+                            
+                            if (!otherCubesHovered) {
+                                connector.visibility = 0;
+                            }
+                        });
+                    }
+                }
+            )
+        );
     }
 
     public render(): Mesh {
@@ -64,6 +140,8 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         const totalHeight = this.trackElement.containerSize.y * blockSize;
         const totalDepth = this.trackElement.containerSize.z * blockSize;
         
+        const connectorPositions = new Map<string, Mesh>();
+
         // Create and position cubes relative to container center
         for (let x = 0; x < this.trackElement.containerSize.x; x++) {
             for (let y = 0; y < this.trackElement.containerSize.y; y++) {
@@ -89,65 +167,32 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                         cube.setParent(containerMesh);
                         this.meshes.push(cube);
 
-                        // Add center point of the cube
-                        this.createConnectorPoint(new Vector3(
-                            cubePosition.x,
-                            cubePosition.y,
-                            cubePosition.z
-                        ), containerMesh);
+                        // Setup hover events for this cube
+                        this.setupCubeHoverEvents(cube);
 
-                        // Add forward center connector point
-                        this.createConnectorPoint(new Vector3(
-                            cubePosition.x,
-                            cubePosition.y,
-                            cubePosition.z + connectorOffset
-                        ), containerMesh);
+                        // Helper function to create or share connector
+                        const createOrShareConnector = (position: Vector3): void => {
+                            const key = `${position.x},${position.y},${position.z}`;
+                            const existingConnector = connectorPositions.get(key);
+                            
+                            if (existingConnector) {
+                                // Share existing connector
+                                this.addSharedConnector(existingConnector, cube);
+                            } else {
+                                // Create new connector
+                                const connector = this.createConnectorPoint(position, containerMesh, cube);
+                                connectorPositions.set(key, connector);
+                            }
+                        };
 
-                        // Add back center connector point (at z=0 side)
-                        if (!this.hasAdjacentCube(x, y, z - 1)) {
-                            this.createConnectorPoint(new Vector3(
-                                cubePosition.x,
-                                cubePosition.y,
-                                cubePosition.z - connectorOffset
-                            ), containerMesh);
-                        }
-
-                        // Add side connector points only if there's no adjacent cube
-                        // Left connector
-                        if (!this.hasAdjacentCube(x - 1, y, z)) {
-                            this.createConnectorPoint(new Vector3(
-                                cubePosition.x - connectorOffset,
-                                cubePosition.y,
-                                cubePosition.z
-                            ), containerMesh);
-                        }
-
-                        // Right connector
-                        if (!this.hasAdjacentCube(x + 1, y, z)) {
-                            this.createConnectorPoint(new Vector3(
-                                cubePosition.x + connectorOffset,
-                                cubePosition.y,
-                                cubePosition.z
-                            ), containerMesh);
-                        }
-
-                        // Top connector
-                        if (!this.hasAdjacentCube(x, y + 1, z)) {
-                            this.createConnectorPoint(new Vector3(
-                                cubePosition.x,
-                                cubePosition.y + connectorOffset,
-                                cubePosition.z
-                            ), containerMesh);
-                        }
-
-                        // Bottom connector
-                        if (!this.hasAdjacentCube(x, y - 1, z)) {
-                            this.createConnectorPoint(new Vector3(
-                                cubePosition.x,
-                                cubePosition.y - connectorOffset,
-                                cubePosition.z
-                            ), containerMesh);
-                        }
+                        // Add all connector points
+                        createOrShareConnector(cubePosition.clone()); // Center
+                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, connectorOffset))); // Forward
+                        createOrShareConnector(cubePosition.add(new Vector3(0, 0, -connectorOffset))); // Back
+                        createOrShareConnector(cubePosition.add(new Vector3(-connectorOffset, 0, 0))); // Left
+                        createOrShareConnector(cubePosition.add(new Vector3(connectorOffset, 0, 0))); // Right
+                        createOrShareConnector(cubePosition.add(new Vector3(0, connectorOffset, 0))); // Top
+                        createOrShareConnector(cubePosition.add(new Vector3(0, -connectorOffset, 0))); // Bottom
                     }
                 }
             }
@@ -163,6 +208,8 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     }
 
     public dispose(): void {
+        this.cubeConnectorMap.clear();
+        this.connectorToCubesMap.clear();
         super.dispose();
         this.meshes.forEach(mesh => {
             mesh.dispose();
