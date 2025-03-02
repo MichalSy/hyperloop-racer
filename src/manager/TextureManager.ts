@@ -38,27 +38,42 @@ export class TextureManager {
         canvas.width = size;
         canvas.height = size;
         
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) throw new Error("Could not get canvas context");
+        
+        // Enable anti-aliasing
+        ctx.imageSmoothingEnabled = true;
         
         // Make canvas fully transparent
         ctx.clearRect(0, 0, size, size);
         
-        // Draw borders with specified color
-        ctx.strokeStyle = `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, 1.0)`;
+        // Set transparent background
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Zeichne die Linien mit leicht reduzierter Deckkraft
+        const alpha = 0.6; // Reduzierte Deckkraft für besseres Blending
+        ctx.strokeStyle = `rgba(${color.r * 255}, ${color.g * 255}, ${color.b * 255}, ${alpha})`;
         ctx.lineWidth = borderWidth;
         
-        // Draw rectangle border
+        // Verwende weichere Linienverbindungen
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        
+        // Zeichne das Rechteck mit etwas Abstand zum Rand
+        const padding = borderWidth * 1.5;
         ctx.strokeRect(
-            borderWidth / 2, 
-            borderWidth / 2, 
-            size - borderWidth, 
-            size - borderWidth
+            padding,
+            padding,
+            size - padding * 2,
+            size - padding * 2
         );
         
         // Create dynamic texture from canvas
-        const texture = Texture.CreateFromBase64String(canvas.toDataURL(), name, this.scene);
+        const texture = new Texture("data:" + canvas.toDataURL(), this.scene);
         texture.hasAlpha = true;
+        texture.wrapU = Texture.CLAMP_ADDRESSMODE;
+        texture.wrapV = Texture.CLAMP_ADDRESSMODE;
         
         return texture;
     }
