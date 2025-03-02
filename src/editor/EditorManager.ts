@@ -36,16 +36,17 @@ export class EditorManager {
         );
         this.trackElementManager = new TrackElementManager(
             this.engine.getScene(),
-            this.trackElementLibrary
+            this.trackElementLibrary,
+            this.physicsSystem
         );
         this.currentTrack = new Track();
 
         this.setupEventListeners();
         this.populateElementPanel();
         this.trackElementManager.setOnSelectionChangeCallback(
-            (instanceId: string, connectorId: string | null) => {
+            (instanceId: string, connectorId?: string) => {
                 if (instanceId) {
-                    this.updatePropertiesPanel(instanceId, connectorId);
+                    this.updatePropertiesPanel(instanceId, connectorId || null);
                 }
             }
         );
@@ -111,8 +112,8 @@ export class EditorManager {
         });
 
         this.trackElementManager.setOnSelectionChangeCallback(
-            (instanceId: string, connectorId: string | null) => {
-                this.updatePropertiesPanel(instanceId, connectorId);
+            (instanceId: string, connectorId?: string) => {
+                this.updatePropertiesPanel(instanceId, connectorId || null);
             }
         );
     }
@@ -147,9 +148,9 @@ export class EditorManager {
         elementList.className = 'element-list';
         
         // Get all track elements
-        const elements = this.trackElementManager.getTrackElements();
+        const elements = this.trackElementLibrary.getAllElements();
         
-        elements.forEach(element => {
+        elements.forEach((element: any) => {
             const elementItem = document.createElement('div');
             elementItem.className = 'element-item';
             elementItem.dataset.elementId = element.id;
@@ -216,8 +217,8 @@ export class EditorManager {
         
         if (!instance) return;
         
-        const elements = this.trackElementManager.getTrackElements();
-        const element = elements.find(e => e.id === instance.elementId);
+        const elements = this.trackElementLibrary.getAllElements();
+        const element = elements.find((e: any) => e.id === instance?.elementId);
         
         if (!element) return;
         
@@ -329,8 +330,7 @@ export class EditorManager {
                 
                 const selectedElement = this.trackElementManager.getSelectedElement();
                 if (selectedElement) {
-                    this.trackElementManager.moveElement(
-                        selectedElement.id,
+                    this.trackElementManager.moveElement(selectedElement.id,
                         new Vector3(x, y, z)
                     );
                     this.markModified();
@@ -342,12 +342,11 @@ export class EditorManager {
                 const y = parseFloat(rotY.value);
                 const z = parseFloat(rotZ.value);
                 
-                this.trackElementManager.moveTrackElementInstance(
-                    instanceId,
-                    instance.position,
-                    { x, y, z }
-                );
-                this.markModified();
+                const selectedElement = this.trackElementManager.getSelectedElement();
+                if (selectedElement) {
+                    this.trackElementManager.rotateElement(x, y, z);
+                    this.markModified();
+                }
             };
             
             posX.addEventListener('change', updatePosition);
@@ -420,19 +419,35 @@ export class EditorManager {
         this.isModified = true;
     }
 
+    private updatePosition(instanceId: string, position: Vector3) {
+        const selectedElement = this.trackElementManager.getSelectedElement();
+        if (selectedElement) {
+            this.trackElementManager.moveElement(selectedElement.id, position);
+            this.markModified();
+        }
+    }
+
+    private updateRotation(instanceId: string, rotation: Vector3) {
+        const selectedElement = this.trackElementManager.getSelectedElement();
+        if (selectedElement) {
+            this.trackElementManager.rotateElement(rotation.x, rotation.y, rotation.z);
+            this.markModified();
+        }
+    }
+
     private addTrackElement(elementId: string) {
         const camera = this.engine.getCamera();
         const forward = camera.getTarget().subtract(camera.position).normalize();
         const position = camera.position.add(forward.scale(20));
         
-        const instanceId = this.trackElementManager.createTrackElementInstance(
+        const instance = this.trackElementManager.createTrackElementInstance(
             elementId,
-            new Vector3(position.x, position.y, position.z),
+            position,
             new Vector3(0, 0, 0)
         );
         
-        if (instanceId) {
-            this.trackElementManager.selectElement(instanceId.id);
+        if (instance) {
+            this.trackElementManager.selectElement(instance.id);
             this.markModified();
         }
     }
@@ -470,8 +485,7 @@ export class EditorManager {
 
     private handleElementDeletion(instanceId: string) {
         if (confirm('Are you sure you want to delete this element?')) {
-            // Verwende Vector3.Zero() statt undefined
-            this.trackElementManager.moveElement(instanceId, Vector3.Zero());
+            // this.trackElementManager.removeElement(instanceId);
             this.markModified();
         }
     }
