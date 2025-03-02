@@ -199,103 +199,166 @@ export class TrackElementRenderer {
         upVector: Vector3;
         forwardVector: Vector3;
     }[]): { points: Vector3[], upVectors: Vector3[] } {
-        // Create arrays for final spline points and up vectors
-        const splineControlPoints: Vector3[] = [];
-        const controlUpVectors: Vector3[] = [];
-
         // Find entry and exit connectors
         const entryConnector = processedConnectors.find(c => c.type === ConnectorType.ENTRY)!;
-        const exitConnector = processedConnectors.find(c => c.type === ConnectorType.EXIT);
+        const exitConnector = processedConnectors.find(c => c.type === ConnectorType.EXIT) || 
+            processedConnectors.filter(c => c.type !== ConnectorType.ENTRY).pop();
 
-        // Add entry connector position
-        splineControlPoints.push(entryConnector.worldPos);
-        controlUpVectors.push(entryConnector.upVector);
+        if (!exitConnector) {
+            throw new Error("Track must have at least two connectors");
+        }
 
-        // Add straight segment at the beginning (1 unit in the forward direction)
-        const entryExtensionPoint = entryConnector.worldPos.add(entryConnector.forwardVector.normalize().scale(1.0));
-        splineControlPoints.push(entryExtensionPoint);
-        controlUpVectors.push(entryConnector.upVector);
-
-        // Add intermediate control points (checkpoints and other connectors)
-        const intermediateConnectors = processedConnectors.filter(c => 
-            c.type !== ConnectorType.ENTRY && c.type !== ConnectorType.EXIT
+        // Calculate distance between connectors to determine appropriate control point distances
+        const distance = Vector3.Distance(entryConnector.worldPos, exitConnector.worldPos);
+        
+        // Scale control point distances based on connector distance
+        // For closer connectors, we want smaller control point distances to avoid excessive curves
+        const controlPointDistanceFactor = Math.min(0.33, Math.max(0.15, distance / 50));
+        
+        // Calculate control point positions
+        const entryControlPoint = entryConnector.worldPos.add(
+            entryConnector.forwardVector.normalize().scale(distance * controlPointDistanceFactor)
         );
         
-        intermediateConnectors.forEach(connector => {
-            splineControlPoints.push(connector.worldPos);
-            controlUpVectors.push(connector.upVector);
-        });
+        const exitControlPoint = exitConnector.worldPos.subtract(
+            exitConnector.forwardVector.normalize().scale(distance * controlPointDistanceFactor)
+        );
+        
+        // Create control points using Bezier curve approach
+        const controlPoints = [
+            entryConnector.worldPos.clone(),
+            entryControlPoint,
+            exitControlPoint,
+            exitConnector.worldPos.clone()
+        ];
 
-        // Add exit connector or last connector if no exit is defined
-        if (exitConnector) {
-            splineControlPoints.push(exitConnector.worldPos);
-            controlUpVectors.push(exitConnector.upVector);
+        // Add any intermediate connectors if they exist
+        const intermediateConnectors = processedConnectors.filter(c => 
+            c.type !== ConnectorType.ENTRY && c !== exitConnector
+        );
+        
+        if (intermediateConnectors.length > 0) {
+            // If we have intermediate points, create a more complex spline that passes through them
+            const allPoints = [entryConnector.worldPos.clone()];
             
-            // Add straight segment at the end (1 unit in the forward direction)
-            const exitExtensionPoint = exitConnector.worldPos.add(exitConnector.forwardVector.normalize().scale(1.0));
-            splineControlPoints.push(exitExtensionPoint);
-            controlUpVectors.push(exitConnector.upVector);
-        } else {
-            // If no exit connector, use the last connector that's not entry
-            const lastConnector = processedConnectors.filter(c => c.type !== ConnectorType.ENTRY).pop();
-            if (lastConnector) {
-                splineControlPoints.push(lastConnector.worldPos);
-                controlUpVectors.push(lastConnector.upVector);
+            // Add entry control point
+            allPoints.push(entryControlPoint);
+            
+            // Add intermediate connectors with their own control points
+            intermediateConnectors.forEach(connector => {
+                // Add the intermediate connector position
+                allPoints.push(connector.worldPos.clone());
                 
-                const lastExtensionPoint = lastConnector.worldPos.add(lastConnector.forwardVector.normalize().scale(1.0));
-                splineControlPoints.push(lastExtensionPoint);
-                controlUpVectors.push(lastConnector.upVector);
-            }
+                // Calculate and add a control point based on this connector's forward vector
+                // This helps maintain the curve direction through the intermediate points
+                allPoints.push(connector.worldPos.add(
+                    connector.forwardVector.normalize().scale(distance * controlPointDistanceFactor * 0.5)
+                ));
+            });
+            
+            // Add exit control point
+            allPoints.push(exitControlPoint);
+            
+            // Add the exit connector position
+            allPoints.push(exitConnector.worldPos.clone());
+            
+            // Use the enhanced points for our spline
+            controlPoints.length = 0;
+            controlPoints.push(...allPoints);
         }
 
-        // Generate the final curve with many points for smooth rendering
-        const numPoints = Math.max(50, splineControlPoints.length * 10); // More points for smoother curve
+        // Generate up vectors for each control point
+        const controlUpVectors: Vector3[] = [];
         
-        // Ensure we have at least 3 points to create a catmull-rom spline
-        if (splineControlPoints.length < 3) {
-            // Add an extra point if we only have 2
-            const firstPoint = splineControlPoints[0];
-            const secondPoint = splineControlPoints[1];
+        // Add up vector for entry connector
+        controlUpVectors.push(entryConnector.upVector.clone());
+        
+        // If using intermediate points, add appropriate up vectors
+        if (intermediateConnectors.length > 0) {
+            // Add up vector for entry control point
+            controlUpVectors.push(entryConnector.upVector.clone());
             
-            // Calculate a third point to make the spline viable
-            const direction = secondPoint.subtract(firstPoint).normalize();
-            const thirdPoint = secondPoint.add(direction);
-            splineControlPoints.push(thirdPoint);
+            // Add up vectors for intermediate connectors and their control points
+            intermediateConnectors.forEach(connector => {
+                controlUpVectors.push(connector.upVector.clone());
+                controlUpVectors.push(connector.upVector.clone());
+            });
             
-            // Use the same up vector for this additional point
-            controlUpVectors.push(controlUpVectors[controlUpVectors.length - 1]);
+            // Add up vectors for exit control and connector
+            controlUpVectors.push(exitConnector.upVector.clone());
+            controlUpVectors.push(exitConnector.upVector.clone());
+        } else {
+            // For simple path, just add remaining up vectors
+            controlUpVectors.push(entryConnector.upVector.clone());
+            controlUpVectors.push(exitConnector.upVector.clone());
+            controlUpVectors.push(exitConnector.upVector.clone());
         }
-
-        // Create the catmull-rom spline for smooth curves
-        const catmullRomSpline = Curve3.CreateCatmullRomSpline(splineControlPoints, numPoints);
-        const curvePoints = catmullRomSpline.getPoints();
         
-        // Interpolate up vectors for each point on the curve
+        // Generate a smooth curve with appropriately spaced points
+        const numPoints = Math.max(50, Math.ceil(distance * 2));
+        
+        // Create the curve based on what type of control points we have
+        let curvePoints: Vector3[];
+        
+        if (controlPoints.length <= 4) {
+            // For simple paths, use a cubic Bezier curve which produces smooth, balanced results
+            curvePoints = Curve3.CreateCubicBezier(
+                controlPoints[0],
+                controlPoints[1],
+                controlPoints[2],
+                controlPoints[3],
+                numPoints
+            ).getPoints();
+        } else {
+            // For complex paths with intermediate points, use Catmull-Rom which passes through all points
+            curvePoints = Curve3.CreateCatmullRomSpline(controlPoints, numPoints).getPoints();
+        }
+        
+        // Generate consistent up vectors along the path
         const finalUpVectors: Vector3[] = [];
         
         for (let i = 0; i < curvePoints.length; i++) {
             const t = i / (curvePoints.length - 1);
             
-            // Interpolate between up vectors
+            // Smooth interpolation between up vectors
             let upVector: Vector3;
+            
             if (t === 0) {
-                upVector = controlUpVectors[0];
+                upVector = entryConnector.upVector.clone();
             } else if (t === 1) {
-                upVector = controlUpVectors[controlUpVectors.length - 1];
+                upVector = exitConnector.upVector.clone();
             } else {
-                const segmentCount = controlUpVectors.length - 1;
-                const segment = Math.min(Math.floor(t * segmentCount), segmentCount - 1);
-                const segmentT = (t * segmentCount) - segment;
-                
-                upVector = Vector3.Lerp(
-                    controlUpVectors[segment],
-                    controlUpVectors[segment + 1],
-                    segmentT
-                ).normalize();
+                // For intermediate points, find where we are in the control point sequence
+                if (controlUpVectors.length > 2) {
+                    const segmentCount = controlUpVectors.length - 1;
+                    const segment = Math.min(Math.floor(t * segmentCount), segmentCount - 1);
+                    const segmentT = (t * segmentCount) - segment;
+                    
+                    // Smoothly interpolate the up vectors
+                    upVector = Vector3.Lerp(
+                        controlUpVectors[segment],
+                        controlUpVectors[segment + 1],
+                        segmentT
+                    ).normalize();
+                } else {
+                    // Simple interpolation between entry and exit
+                    upVector = Vector3.Lerp(
+                        entryConnector.upVector,
+                        exitConnector.upVector,
+                        t
+                    ).normalize();
+                }
             }
+            
             finalUpVectors.push(upVector);
         }
-
+        
+        // Ensure the spline exactly matches the entry and exit positions
+        if (curvePoints.length > 0) {
+            curvePoints[0] = entryConnector.worldPos.clone();
+            curvePoints[curvePoints.length - 1] = exitConnector.worldPos.clone();
+        }
+        
         return {
             points: curvePoints,
             upVectors: finalUpVectors
