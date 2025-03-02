@@ -90,14 +90,6 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             -(totalDepth / 2.0)
         );
 
-        const worldNullSphere = MeshBuilder.CreateSphere("world-null", {
-            diameter: .3
-        }, this.scene);
-        worldNullSphere.material = this.connectorMaterial;
-        worldNullSphere.position = new Vector3(0, 0, 0);
-        worldNullSphere.setParent(rootMesh);
-        this.meshes.push(worldNullSphere);
-
         return rootMesh;
     }
 
