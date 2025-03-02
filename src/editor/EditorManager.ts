@@ -57,22 +57,36 @@ export class EditorManager {
     }
 
     private setupUI(container: HTMLElement) {
+        // Create main editor container
+        const editorContainer = document.createElement('div');
+        editorContainer.className = 'editor-container';
+        
+        // Create editor main section
+        const editorMain = document.createElement('div');
+        editorMain.className = 'editor-main';
+        
+        // Create panels and canvas
+        this.elementPanel = document.createElement('div');
+        this.elementPanel.className = 'element-panel';
+        this.elementPanel.innerHTML = '<h3>Track Elements</h3>';
+        
         this.canvasContainer = document.createElement('div');
         this.canvasContainer.className = 'canvas-container';
         
         this.canvas = document.createElement('canvas');
         this.canvas.className = 'editor-canvas';
         
-        this.elementPanel = document.createElement('div');
-        this.elementPanel.className = 'element-panel';
-        
         this.propertiesPanel = document.createElement('div');
         this.propertiesPanel.className = 'properties-panel';
+        this.propertiesPanel.innerHTML = '<h3>Properties</h3>';
         
+        // Assemble the structure
         this.canvasContainer.appendChild(this.canvas);
-        container.appendChild(this.canvasContainer);
-        container.appendChild(this.elementPanel);
-        container.appendChild(this.propertiesPanel);
+        editorMain.appendChild(this.elementPanel);
+        editorMain.appendChild(this.canvasContainer);
+        editorMain.appendChild(this.propertiesPanel);
+        editorContainer.appendChild(editorMain);
+        container.appendChild(editorContainer);
     }
 
     private setupPanels() {
