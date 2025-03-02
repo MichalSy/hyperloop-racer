@@ -41,6 +41,9 @@ export class EditorManager {
         );
         this.currentTrack = new Track();
 
+        // Move setupPanels here after trackElementLibrary is initialized
+        this.setupPanels();
+        
         this.setupEventListeners();
         this.populateElementPanel();
         this.trackElementManager.setOnSelectionChangeCallback(
@@ -70,8 +73,6 @@ export class EditorManager {
         container.appendChild(this.canvasContainer);
         container.appendChild(this.elementPanel);
         container.appendChild(this.propertiesPanel);
-
-        this.setupPanels();
     }
 
     private setupPanels() {
