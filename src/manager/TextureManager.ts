@@ -24,7 +24,7 @@ export class TextureManager {
 
     private initializeDebugTextures(): void {
         // Create container debug texture (blue lines)
-        this.containerTexture = this.createDebugTexture("containerDebug", Color3.Green());
+        this.containerTexture = this.createDebugTexture("containerDebug", Color3.Blue());
         
         // Create selection debug texture (red lines)
         this.selectionTexture = this.createDebugTexture("selectionDebug", Color3.Red());

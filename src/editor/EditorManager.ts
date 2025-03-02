@@ -72,22 +72,30 @@ export class EditorManager {
         const editorContainer = document.createElement('div');
         editorContainer.className = 'editor-container';
         
-        this.modeToggleButton = document.createElement('button');
-        this.modeToggleButton.className = 'mode-toggle-button';
-        
         const editorMain = document.createElement('div');
         editorMain.className = 'editor-main';
         
+        // Editor-Toolbar für Steuerelemente erstellen
+        const editorToolbar = document.createElement('div');
+        editorToolbar.className = 'editor-toolbar';
+        
+        this.modeToggleButton = document.createElement('button');
+        this.modeToggleButton.className = 'mode-toggle-button';
+        editorToolbar.appendChild(this.modeToggleButton);
+        
+        // Haupt-Layout erstellen
         this.elementPanel = document.createElement('div');
         this.elementPanel.className = 'element-panel';
         
         this.propertiesPanel = document.createElement('div');
         this.propertiesPanel.className = 'properties-panel';
         
-        editorMain.appendChild(this.modeToggleButton);
+        // Zusammenfügen der Elemente in der richtigen Reihenfolge
         editorMain.appendChild(this.elementPanel);
         editorMain.appendChild(this.canvasContainer);
         editorMain.appendChild(this.propertiesPanel);
+        
+        editorContainer.appendChild(editorToolbar);
         editorContainer.appendChild(editorMain);
         container.appendChild(editorContainer);
 

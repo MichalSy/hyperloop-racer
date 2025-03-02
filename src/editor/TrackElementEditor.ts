@@ -11,6 +11,7 @@ export class TrackElementEditor {
     private elementPanel: HTMLElement;
     private propertiesPanel: HTMLElement;
     private currentRenderer: TrackElementEditorRenderer | null = null;
+    private activeElementId: string | null = null;
 
     constructor(
         engine: BabylonEngine,
@@ -29,28 +30,48 @@ export class TrackElementEditor {
 
     private setupElementPanel() {
         const elements = this.trackElementLibrary.getAllElements();
-        const elementList = document.createElement('div');
-        elementList.className = 'element-list';
-
+        
+        // Group elements by category if available, otherwise use "Default"
+        const elementsByCategory: { [key: string]: any[] } = {};
+        
         elements.forEach(element => {
-            const elementItem = document.createElement('div');
-            elementItem.className = 'element-item';
-            elementItem.setAttribute('data-element-id', element.id);
-
-            const thumbnail = document.createElement('div');
-            thumbnail.className = 'element-thumbnail';
-
-            const name = document.createElement('div');
-            name.className = 'element-name';
-            name.textContent = element.name;
-
-            elementItem.appendChild(thumbnail);
-            elementItem.appendChild(name);
-            elementList.appendChild(elementItem);
+            const category = element.category || 'Default';
+            if (!elementsByCategory[category]) {
+                elementsByCategory[category] = [];
+            }
+            elementsByCategory[category].push(element);
         });
-
-        this.elementPanel.innerHTML = '<h3>Track Elements</h3>';
-        this.elementPanel.appendChild(elementList);
+        
+        // Create panel content with category sections
+        let panelContent = `
+            <div class="editor-panel">
+                <h3>Track Elements</h3>
+        `;
+        
+        // Add elements grouped by category
+        Object.keys(elementsByCategory).sort().forEach(category => {
+            const categoryElements = elementsByCategory[category];
+            
+            panelContent += `
+                <div class="element-category">
+                    <h4 class="category-title">${category}</h4>
+                    <div class="element-list">
+                        ${categoryElements.map(element => `
+                            <div class="element-item" data-element-id="${element.id}">
+                                <div class="element-thumbnail">
+                                    <div class="element-shape"></div>
+                                </div>
+                                <div class="element-name">${element.name}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        
+        panelContent += `</div>`;
+        
+        this.elementPanel.innerHTML = panelContent;
     }
 
     private setupEventListeners() {
@@ -67,6 +88,7 @@ export class TrackElementEditor {
 
     public showTrackElement(elementId: string) {
         this.clearCurrentElement();
+        this.activeElementId = elementId;
         
         const camera = this.engine.getCamera();
         const position = camera.target.clone();
@@ -82,6 +104,9 @@ export class TrackElementEditor {
                 el.classList.remove('active');
                 if (el.getAttribute('data-element-id') === elementId) {
                     el.classList.add('active');
+                    
+                    // Ensure the active element is visible in the viewport
+                    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             });
 
@@ -94,27 +119,35 @@ export class TrackElementEditor {
             this.currentRenderer.dispose();
             this.currentRenderer = null;
         }
+        this.activeElementId = null;
     }
 
     public updatePropertiesPanel(elementId: string | null) {
+        this.propertiesPanel.innerHTML = '<h3>Element Properties</h3>';
+        
         if (!elementId) {
-            this.propertiesPanel.innerHTML = '<h3>Element Properties</h3>';
+            this.propertiesPanel.innerHTML += '<div class="element-info"><p>No element selected</p></div>';
             return;
         }
 
         const element = this.trackElementLibrary.getElementById(elementId);
         if (!element) return;
 
-        this.propertiesPanel.innerHTML = `
-            <h3>Element Properties</h3>
+        this.propertiesPanel.innerHTML += `
             <div class="element-info">
                 <h4>${element.name}</h4>
-                <p>${element.description || ''}</p>
+                <p>${element.description || 'No description available.'}</p>
             </div>
             <div class="property-group">
-                <label>Test Properties:</label>
+                <label>Dimensions</label>
                 <div class="property-controls">
-                    <!-- Add specific element properties here -->
+                    <div class="property-row">Size: ${element.containerSize.x} x ${element.containerSize.y} x ${element.containerSize.z}</div>
+                </div>
+            </div>
+            <div class="property-group">
+                <label>Editor Controls</label>
+                <div class="property-controls">
+                    <!-- Editor specific controls will be added here -->
                 </div>
             </div>
         `;
