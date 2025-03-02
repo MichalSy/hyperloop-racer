@@ -33,14 +33,18 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
 
     public render(position: Vector3): Mesh {
         const rootMesh = new Mesh("editor-root", this.scene);
-        rootMesh.position = position;
+        const containerMesh = new Mesh("container", this.scene);
+        containerMesh.setParent(rootMesh);
 
         const blockSize = 10;
         const cubeScale = 1;
         
-        // Verschiebe alle Würfel so, dass die Mitte der ersten Außenwand bei 0,0,0 liegt
-        const offset = blockSize / 2;
+        // Calculate total dimensions for centering
+        const totalWidth = this.trackElement.containerSize.x * blockSize;
+        const totalHeight = this.trackElement.containerSize.y * blockSize;
+        const totalDepth = this.trackElement.containerSize.z * blockSize;
         
+        // Create and position cubes relative to container center
         for (let x = 0; x < this.trackElement.containerSize.x; x++) {
             for (let y = 0; y < this.trackElement.containerSize.y; y++) {
                 for (let z = 0; z < this.trackElement.containerSize.z; z++) {
@@ -55,27 +59,44 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                         
                         cube.material = this.debugMaterial;
                         
+                        // Position relative to container center
                         cube.position = new Vector3(
                             x * blockSize,
-                            y * blockSize + offset,
-                            z * blockSize + blockSize 
+                            y * blockSize,
+                            z * blockSize + (blockSize / 2.0)
                         );
                         
-                        cube.setParent(rootMesh);
+                        cube.setParent(containerMesh);
                         this.meshes.push(cube);
                     }
                 }
             }
         }
 
-        // Add connector point at 0,0,0 (now centered on the outside face of the first cube)
+        // Add connector point relative to container center
         const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
-            diameter: 2
+            diameter: 1
         }, this.scene);
         connectorSphere.material = this.connectorMaterial;
-        connectorSphere.position = new Vector3(0, blockSize/2, blockSize/2); // Zentriert auf der Außenfläche
-        connectorSphere.setParent(rootMesh);
+        connectorSphere.position = new Vector3(0, 0, 0);
+        connectorSphere.setParent(containerMesh);
         this.meshes.push(connectorSphere);
+
+
+
+        rootMesh.position = new Vector3(
+            -(totalWidth / 2.0) + (blockSize / 2.0),
+            -(totalHeight / 2.0) + (blockSize / 2.0),
+            -(totalDepth / 2.0)
+        );
+
+        const worldNullSphere = MeshBuilder.CreateSphere("world-null", {
+            diameter: .3
+        }, this.scene);
+        worldNullSphere.material = this.connectorMaterial;
+        worldNullSphere.position = new Vector3(0, 0, 0);
+        worldNullSphere.setParent(rootMesh);
+        this.meshes.push(worldNullSphere);
 
         return rootMesh;
     }
