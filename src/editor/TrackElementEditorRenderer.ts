@@ -237,9 +237,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     }
 
     public render(): Mesh {
-        const rootMesh = new Mesh("editor-root", this.scene);
         const containerMesh = new Mesh("container", this.scene);
-        containerMesh.setParent(rootMesh);
 
         const blockSize = 10;
         const cubeScale = 1;
@@ -335,13 +333,13 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             }
         }
 
-        rootMesh.position = new Vector3(
+        containerMesh.position = new Vector3(
             -(totalWidth / 2.0) + (blockSize / 2.0),
             -(totalHeight / 2.0) + (blockSize / 2.0),
             -(totalDepth / 2.0)
         );
 
-        return rootMesh;
+        return containerMesh;
     }
 
     public dispose(): void {
