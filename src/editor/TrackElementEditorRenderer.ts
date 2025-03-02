@@ -5,6 +5,7 @@ import { TextureManager } from '../manager/TextureManager';
 
 export class TrackElementEditorRenderer extends TrackElementRenderer {
     private debugMaterial: StandardMaterial;
+    private connectorMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
 
     constructor(scene: Scene, trackElement: TrackElement) {
@@ -23,6 +24,11 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         // Optimiere Alpha Blending
         this.debugMaterial.alphaMode = Engine.ALPHA_COMBINE;
         this.debugMaterial.separateCullingPass = true;
+
+        // Create connector material
+        this.connectorMaterial = new StandardMaterial("connector-material", scene);
+        this.connectorMaterial.diffuseColor = Color3.White();
+        this.connectorMaterial.emissiveColor = Color3.White();
     }
 
     public render(position: Vector3): Mesh {
@@ -30,7 +36,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         rootMesh.position = position;
 
         const blockSize = 10;
-        const cubeScale = 0.98; // Mache die Würfel leicht kleiner um Überschneidungen zu vermeiden
+        const cubeScale = 1; // Mache die Würfel leicht kleiner um Überschneidungen zu vermeiden
         
         for (let x = 0; x < this.trackElement.containerSize.x; x++) {
             for (let y = 0; y < this.trackElement.containerSize.y; y++) {
@@ -59,6 +65,15 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             }
         }
 
+        // Add connector point at 0,0,0
+        const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
+            diameter: 2
+        }, this.scene);
+        connectorSphere.material = this.connectorMaterial;
+        connectorSphere.position = new Vector3(0, 0, 0);
+        connectorSphere.setParent(rootMesh);
+        this.meshes.push(connectorSphere);
+
         return rootMesh;
     }
 
@@ -69,5 +84,6 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         });
         this.meshes = [];
         this.debugMaterial.dispose();
+        this.connectorMaterial.dispose();
     }
 }
