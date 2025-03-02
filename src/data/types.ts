@@ -18,6 +18,7 @@ export interface Connector {
   position: Vector3;   // Position relative to the track element origin
   normal: Vector3;     // Direction the connector faces (outward from the surface)
   upVector: Vector3;   // "Up" orientation for the connector
+  forwardVector: Vector3;  // Direction vector indicating forward direction at this connector
   type: ConnectorType; // Role of the connector
 }
 

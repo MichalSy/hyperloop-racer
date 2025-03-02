@@ -10,6 +10,8 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     private entryConnectorMaterial: StandardMaterial;
     private exitConnectorMaterial: StandardMaterial;
     private arrowMaterial: StandardMaterial;
+    private upArrowMaterial: StandardMaterial;
+    private forwardArrowMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
     private cubeConnectorMap: Map<Mesh, Mesh[]> = new Map();
     private connectorToCubesMap: Map<Mesh, Mesh[]> = new Map();
@@ -55,6 +57,57 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.arrowMaterial = new StandardMaterial("arrow-material", scene);
         this.arrowMaterial.diffuseColor = Color3.Yellow();
         this.arrowMaterial.emissiveColor = Color3.Yellow();
+
+        // Create up arrow material (orange)
+        this.upArrowMaterial = new StandardMaterial("up-arrow-material", scene);
+        this.upArrowMaterial.diffuseColor = new Color3(1, 0.5, 0); // Orange
+        this.upArrowMaterial.emissiveColor = new Color3(1, 0.5, 0);
+
+        // Create forward arrow material (blue)
+        this.forwardArrowMaterial = new StandardMaterial("forward-arrow-material", scene);
+        this.forwardArrowMaterial.diffuseColor = new Color3(0, 0, 1); // Blue
+        this.forwardArrowMaterial.emissiveColor = new Color3(0, 0, 1);
+    }
+
+    private createDirectionArrow(startPos: Vector3, direction: Vector3, material: StandardMaterial, parent: Mesh): Mesh {
+        // Create arrow cylinder
+        const arrowHeight = 2;
+        const arrow = MeshBuilder.CreateCylinder("direction-arrow", {
+            height: arrowHeight,
+            diameter: 0.2,
+        }, this.scene);
+
+        // Create arrow head (cone)
+        const arrowHead = MeshBuilder.CreateCylinder("direction-arrow-head", {
+            height: 0.5,
+            diameterTop: 0,
+            diameterBottom: 0.4,
+        }, this.scene);
+
+        // Position arrow head on top of arrow cylinder
+        arrowHead.position.y = arrowHeight / 2;
+        arrowHead.setParent(arrow);
+
+        // Apply material
+        arrow.material = material;
+        arrowHead.material = material;
+
+        // Position arrow
+        arrow.position = startPos.add(new Vector3(0, 1, 0)); // Move 1 unit above the sphere
+        
+        // Calculate rotation to align with direction vector
+        const defaultUp = new Vector3(0, 1, 0);
+        const rotationAxis = Vector3.Cross(defaultUp, direction.normalize());
+        const angle = Math.acos(Vector3.Dot(defaultUp, direction.normalize()));
+        
+        if (!rotationAxis.equals(Vector3.Zero())) {
+            arrow.rotate(rotationAxis, angle);
+        }
+
+        arrow.setParent(parent);
+        this.meshes.push(arrow);
+        
+        return arrow;
     }
 
     private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh, connectorType?: ConnectorType): Mesh {
@@ -97,53 +150,21 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
 
         this.meshes.push(connectorSphere);
 
-        // If this is a fixed connector, create an arrow to show its up vector orientation
+        // If this is a fixed connector, create arrows to show direction vectors
         if (isFixedConnector) {
-            // Find the matching connector definition to get the up vector
+            // Find the matching connector definition to get the vectors
             const connector = this.trackElement.connectors.find(c => 
                 new Vector3(c.position.x, c.position.y, c.position.z).equals(position)
             );
 
             if (connector) {
-                // Create arrow cylinder
-                const arrowHeight = 2;
-                const arrow = MeshBuilder.CreateCylinder("connector-arrow", {
-                    height: arrowHeight,
-                    diameter: 0.2,
-                }, this.scene);
-
-                // Create arrow head (cone)
-                const arrowHead = MeshBuilder.CreateCylinder("connector-arrow-head", {
-                    height: 0.5,
-                    diameterTop: 0,
-                    diameterBottom: 0.4,
-                }, this.scene);
-
-                // Position arrow head on top of arrow cylinder
-                arrowHead.position.y = arrowHeight / 2;
-                arrowHead.setParent(arrow);
-
-                // Apply material
-                arrow.material = this.arrowMaterial;
-                arrowHead.material = this.arrowMaterial;
-
-                // Position and orient arrow based on connector's up vector
-                arrow.position = position;
-                
-                // Calculate rotation to align with up vector
+                // Create up vector arrow (orange)
                 const upVector = new Vector3(connector.upVector.x, connector.upVector.y, connector.upVector.z);
-                const defaultUp = new Vector3(0, 1, 0);
-                
-                // Calculate rotation axis and angle
-                const rotationAxis = Vector3.Cross(defaultUp, upVector);
-                const angle = Math.acos(Vector3.Dot(defaultUp.normalize(), upVector.normalize()));
-                
-                if (!rotationAxis.equals(Vector3.Zero())) {
-                    arrow.rotate(rotationAxis, angle);
-                }
+                this.createDirectionArrow(position, upVector, this.upArrowMaterial, parent);
 
-                arrow.setParent(parent);
-                this.meshes.push(arrow);
+                // Create forward vector arrow (blue)
+                const forwardVector = new Vector3(connector.forwardVector.x, connector.forwardVector.y, connector.forwardVector.z);
+                this.createDirectionArrow(position, forwardVector, this.forwardArrowMaterial, parent);
             }
         }
 
@@ -358,5 +379,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.entryConnectorMaterial.dispose();
         this.exitConnectorMaterial.dispose();
         this.arrowMaterial.dispose();
+        this.upArrowMaterial.dispose();
+        this.forwardArrowMaterial.dispose();
     }
 }

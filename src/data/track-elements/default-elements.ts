@@ -15,18 +15,21 @@ export const DefaultTrackElements: TrackElement[] = [
         position: { x: 0, y: 0, z: 0 },
         normal: { x: 0, y: 0, z: -1 },
         upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Forward along Z axis
         type: ConnectorType.ENTRY
       },
       {
         position: { x: 0, y: 0, z: 15 },
         normal: { x: 0, y: 0, z: 1 },
         upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Forward along Z axis
         type: ConnectorType.CHECKPOINT
       },
       {
         position: { x: 0, y: 0, z: 30 },
         normal: { x: 0, y: 0, z: 1 },
         upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Forward along Z axis
         type: ConnectorType.EXIT
       }
     ]
@@ -43,12 +46,14 @@ export const DefaultTrackElements: TrackElement[] = [
         position: { x: 0, y: 0, z: 0 },
         normal: { x: -1, y: 0, z: 0 },
         upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 0, y: 0, z: 1 },  // Initial forward along Z axis
         type: ConnectorType.ENTRY
       },
       {
         position: { x: 15, y: 0, z: 15 },
         normal: { x: 0, y: 0, z: 1 },
         upVector: { x: 0, y: 1, z: 0 },
+        forwardVector: { x: 1, y: 0, z: 0 },  // Final forward along X axis after curve
         type: ConnectorType.EXIT
       }
     ]
