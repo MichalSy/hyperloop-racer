@@ -16,6 +16,8 @@ export class TrackElementRenderer {
         // Create default material
         this.material = new StandardMaterial(`${trackElement.id}-material`, scene);
         this.material.diffuseColor = Color3.Gray();
+        // Disable backface culling to make both sides of the track visible
+        this.material.backFaceCulling = false;
     }
 
     protected getContainerMesh(): Mesh {
@@ -35,7 +37,7 @@ export class TrackElementRenderer {
 
         const positions: number[] = [];
         const indices: number[] = [];
-        const normals_: number[] = [];
+        const normals: number[] = [];
         const uvs: number[] = [];
 
         // Create vertices for the road - now with top and bottom faces
@@ -77,35 +79,35 @@ export class TrackElementRenderer {
                 1, uv   // bottom right
             );
 
-            // Normals for each vertex (pointing upward for top face, downward for bottom face)
-            for (let j = 0; j < 2; j++) { // Top vertices
-                normals_.push(correctedUp.x, correctedUp.y, correctedUp.z);
-            }
-            for (let j = 0; j < 2; j++) { // Bottom vertices
-                normals_.push(-correctedUp.x, -correctedUp.y, -correctedUp.z);
-            }
+            // Normals for each vertex
+            // Top face normals (pointing up)
+            normals.push(correctedUp.x, correctedUp.y, correctedUp.z);
+            normals.push(correctedUp.x, correctedUp.y, correctedUp.z);
+            // Bottom face normals (pointing down)
+            normals.push(-correctedUp.x, -correctedUp.y, -correctedUp.z);
+            normals.push(-correctedUp.x, -correctedUp.y, -correctedUp.z);
 
             // Create triangles between current and next cross section
             if (i < points.length - 1) {
                 const baseIdx = i * 4;
                 // Top face
                 indices.push(
-                    baseIdx, baseIdx + 1, baseIdx + 4,
-                    baseIdx + 1, baseIdx + 5, baseIdx + 4
+                    baseIdx, baseIdx + 4, baseIdx + 1,
+                    baseIdx + 1, baseIdx + 4, baseIdx + 5
                 );
                 // Bottom face
                 indices.push(
-                    baseIdx + 2, baseIdx + 6, baseIdx + 3,
-                    baseIdx + 3, baseIdx + 6, baseIdx + 7
+                    baseIdx + 2, baseIdx + 3, baseIdx + 6,
+                    baseIdx + 3, baseIdx + 7, baseIdx + 6
                 );
                 // Side faces
                 indices.push(
                     // Left side
-                    baseIdx, baseIdx + 4, baseIdx + 2,
-                    baseIdx + 2, baseIdx + 4, baseIdx + 6,
+                    baseIdx, baseIdx + 2, baseIdx + 4,
+                    baseIdx + 2, baseIdx + 6, baseIdx + 4,
                     // Right side
-                    baseIdx + 1, baseIdx + 3, baseIdx + 5,
-                    baseIdx + 3, baseIdx + 7, baseIdx + 5
+                    baseIdx + 1, baseIdx + 5, baseIdx + 3,
+                    baseIdx + 3, baseIdx + 5, baseIdx + 7
                 );
             }
         }
@@ -117,7 +119,7 @@ export class TrackElementRenderer {
         
         vertexData.positions = positions;
         vertexData.indices = indices;
-        vertexData.normals = normals_;
+        vertexData.normals = normals;
         vertexData.uvs = uvs;
         
         vertexData.applyToMesh(roadMesh);
@@ -289,8 +291,8 @@ export class TrackElementRenderer {
         
         curveUpVectors.push(exitConnector.upVector.clone());
         
-        // Generate the curve points
-        const numCurvePoints = Math.max(30, Math.ceil(distance * 1.5));
+        // Generate the curve points - higher density for smoother curves
+        const numCurvePoints = Math.max(50, Math.ceil(distance * 2.5));
         let curvePoints: Vector3[];
         
         if (curveControlPoints.length <= 4) {
@@ -306,7 +308,8 @@ export class TrackElementRenderer {
             // For complex curves with intermediate points
             curvePoints = Curve3.CreateCatmullRomSpline(
                 curveControlPoints,
-                numCurvePoints
+                numCurvePoints,
+                false // Do not close the curve
             ).getPoints();
         }
         
@@ -337,15 +340,6 @@ export class TrackElementRenderer {
         // Final verification - make sure the first and last points exactly match the connectors
         finalPoints[0] = entryConnector.worldPos.clone();
         finalPoints[finalPoints.length - 1] = exitConnector.worldPos.clone();
-        
-        // For debugging - verify that the direction at the start and end matches the connector directions
-        if (finalPoints.length >= 2) {
-            const startDirection = finalPoints[1].subtract(finalPoints[0]).normalize();
-            const endDirection = finalPoints[finalPoints.length - 1].subtract(finalPoints[finalPoints.length - 2]).normalize();
-            
-            console.log('Start direction match:', Vector3.Dot(startDirection, entryConnector.forwardVector.normalize()));
-            console.log('End direction match:', Vector3.Dot(endDirection, exitConnector.forwardVector.normalize()));
-        }
         
         return {
             points: finalPoints,
