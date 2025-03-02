@@ -1,4 +1,4 @@
-import { Scene, Mesh, StandardMaterial, Color3, Vector3, Path3D, VertexData, Quaternion } from '@babylonjs/core';
+import { Scene, Mesh, StandardMaterial, Color3, Vector3, Path3D, VertexData, Curve3, MeshBuilder } from '@babylonjs/core';
 import { TrackElement, ConnectorType } from '../data/types';
 
 export class TrackElementRenderer {
@@ -7,6 +7,7 @@ export class TrackElementRenderer {
     protected mesh: Mesh | null = null;
     protected material: StandardMaterial;
     protected containerMesh: Mesh | null = null;
+    protected debugTube: Mesh | null = null;
 
     constructor(scene: Scene, trackElement: TrackElement) {
         this.scene = scene;
@@ -128,63 +129,177 @@ export class TrackElementRenderer {
         if (this.mesh) {
             this.mesh.dispose();
         }
+        
+        if (this.debugTube) {
+            this.debugTube.dispose();
+        }
 
-        // Find entry connector
-        const entryConnector = this.trackElement.connectors.find(c => c.type === ConnectorType.ENTRY);
+        // Process all connectors and store their world positions and orientations
+        const connectors = this.trackElement.connectors;
+        const processedConnectors = connectors.map(connector => {
+            const worldPos = new Vector3(
+                position.x + connector.position.x,
+                position.y + connector.position.y,
+                position.z + connector.position.z
+            );
+            return {
+                worldPos,
+                type: connector.type,
+                upVector: new Vector3(
+                    connector.upVector.x,
+                    connector.upVector.y,
+                    connector.upVector.z
+                ),
+                forwardVector: new Vector3(
+                    connector.forwardVector.x,
+                    connector.forwardVector.y,
+                    connector.forwardVector.z
+                )
+            };
+        });
+
+        // Find entry and exit connectors
+        const entryConnector = processedConnectors.find(c => c.type === ConnectorType.ENTRY);
+        const exitConnector = processedConnectors.find(c => c.type === ConnectorType.EXIT);
+
         if (!entryConnector) {
             throw new Error("Track element must have an entry connector");
         }
 
-        // Create arrays for points and up vectors
-        const splinePoints: Vector3[] = [];
-        const upVectors: Vector3[] = [];
-
-        // Start with entry connector
-        const startPos = new Vector3(
-            position.x + entryConnector.position.x,
-            position.y + entryConnector.position.y,
-            position.z + entryConnector.position.z
-        );
-        splinePoints.push(startPos);
-        
-        const startUp = new Vector3(
-            entryConnector.upVector.x,
-            entryConnector.upVector.y,
-            entryConnector.upVector.z
-        );
-        upVectors.push(startUp);
-
-        // Add other connectors in their defined order
-        this.trackElement.connectors
-            .filter(c => c.type !== ConnectorType.ENTRY)
-            .forEach(connector => {
-                splinePoints.push(new Vector3(
-                    position.x + connector.position.x,
-                    position.y + connector.position.y,
-                    position.z + connector.position.z
-                ));
-                upVectors.push(new Vector3(
-                    connector.upVector.x,
-                    connector.upVector.y,
-                    connector.upVector.z
-                ));
-            });
-
-        // Create interpolated points along the spline
-        const numPoints = Math.max(20, splinePoints.length * 5); // At least 5 points between each connector
-        const points: Vector3[] = [];
-        const path = new Path3D(splinePoints);
-        
-        for (let i = 0; i < numPoints; i++) {
-            const t = i / (numPoints - 1);
-            points.push(path.getPointAt(t));
+        if (!exitConnector && processedConnectors.length < 2) {
+            throw new Error("Track element must have at least two connectors");
         }
+
+        // Generate properly balanced spline points
+        const { points, upVectors } = this.generateBalancedSpline(processedConnectors);
 
         // Create the road mesh using both points and up vectors
         this.mesh = this.createRoadFromSpline(points, upVectors);
         this.mesh.material = this.material;
 
+        // Create debug tube to visualize the spline
+        this.debugTube = MeshBuilder.CreateTube("debugTube", {
+            path: points,
+            radius: 0.5,
+            updatable: false
+        }, this.scene);
+        
+        const tubeMaterial = new StandardMaterial("tubeMaterial", this.scene);
+        tubeMaterial.emissiveColor = new Color3(0, 1, 0);
+        tubeMaterial.alpha = 0.5;
+        this.debugTube.material = tubeMaterial;
+        this.debugTube.parent = this.getContainerMesh();
+
         return this.mesh;
+    }
+
+    private generateBalancedSpline(processedConnectors: {
+        worldPos: Vector3;
+        type: ConnectorType;
+        upVector: Vector3;
+        forwardVector: Vector3;
+    }[]): { points: Vector3[], upVectors: Vector3[] } {
+        // Create arrays for final spline points and up vectors
+        const splineControlPoints: Vector3[] = [];
+        const controlUpVectors: Vector3[] = [];
+
+        // Find entry and exit connectors
+        const entryConnector = processedConnectors.find(c => c.type === ConnectorType.ENTRY)!;
+        const exitConnector = processedConnectors.find(c => c.type === ConnectorType.EXIT);
+
+        // Add entry connector position
+        splineControlPoints.push(entryConnector.worldPos);
+        controlUpVectors.push(entryConnector.upVector);
+
+        // Add straight segment at the beginning (1 unit in the forward direction)
+        const entryExtensionPoint = entryConnector.worldPos.add(entryConnector.forwardVector.normalize().scale(1.0));
+        splineControlPoints.push(entryExtensionPoint);
+        controlUpVectors.push(entryConnector.upVector);
+
+        // Add intermediate control points (checkpoints and other connectors)
+        const intermediateConnectors = processedConnectors.filter(c => 
+            c.type !== ConnectorType.ENTRY && c.type !== ConnectorType.EXIT
+        );
+        
+        intermediateConnectors.forEach(connector => {
+            splineControlPoints.push(connector.worldPos);
+            controlUpVectors.push(connector.upVector);
+        });
+
+        // Add exit connector or last connector if no exit is defined
+        if (exitConnector) {
+            splineControlPoints.push(exitConnector.worldPos);
+            controlUpVectors.push(exitConnector.upVector);
+            
+            // Add straight segment at the end (1 unit in the forward direction)
+            const exitExtensionPoint = exitConnector.worldPos.add(exitConnector.forwardVector.normalize().scale(1.0));
+            splineControlPoints.push(exitExtensionPoint);
+            controlUpVectors.push(exitConnector.upVector);
+        } else {
+            // If no exit connector, use the last connector that's not entry
+            const lastConnector = processedConnectors.filter(c => c.type !== ConnectorType.ENTRY).pop();
+            if (lastConnector) {
+                splineControlPoints.push(lastConnector.worldPos);
+                controlUpVectors.push(lastConnector.upVector);
+                
+                const lastExtensionPoint = lastConnector.worldPos.add(lastConnector.forwardVector.normalize().scale(1.0));
+                splineControlPoints.push(lastExtensionPoint);
+                controlUpVectors.push(lastConnector.upVector);
+            }
+        }
+
+        // Generate the final curve with many points for smooth rendering
+        const numPoints = Math.max(50, splineControlPoints.length * 10); // More points for smoother curve
+        
+        // Ensure we have at least 3 points to create a catmull-rom spline
+        if (splineControlPoints.length < 3) {
+            // Add an extra point if we only have 2
+            const firstPoint = splineControlPoints[0];
+            const secondPoint = splineControlPoints[1];
+            
+            // Calculate a third point to make the spline viable
+            const direction = secondPoint.subtract(firstPoint).normalize();
+            const thirdPoint = secondPoint.add(direction);
+            splineControlPoints.push(thirdPoint);
+            
+            // Use the same up vector for this additional point
+            controlUpVectors.push(controlUpVectors[controlUpVectors.length - 1]);
+        }
+
+        // Create the catmull-rom spline for smooth curves
+        const catmullRomSpline = Curve3.CreateCatmullRomSpline(splineControlPoints, numPoints);
+        const curvePoints = catmullRomSpline.getPoints();
+        
+        // Interpolate up vectors for each point on the curve
+        const finalUpVectors: Vector3[] = [];
+        
+        for (let i = 0; i < curvePoints.length; i++) {
+            const t = i / (curvePoints.length - 1);
+            
+            // Interpolate between up vectors
+            let upVector: Vector3;
+            if (t === 0) {
+                upVector = controlUpVectors[0];
+            } else if (t === 1) {
+                upVector = controlUpVectors[controlUpVectors.length - 1];
+            } else {
+                const segmentCount = controlUpVectors.length - 1;
+                const segment = Math.min(Math.floor(t * segmentCount), segmentCount - 1);
+                const segmentT = (t * segmentCount) - segment;
+                
+                upVector = Vector3.Lerp(
+                    controlUpVectors[segment],
+                    controlUpVectors[segment + 1],
+                    segmentT
+                ).normalize();
+            }
+            finalUpVectors.push(upVector);
+        }
+
+        return {
+            points: curvePoints,
+            upVectors: finalUpVectors
+        };
     }
 
     public dispose(): void {
@@ -198,6 +313,10 @@ export class TrackElementRenderer {
         }
         if (this.material) {
             this.material.dispose();
+        }
+        if (this.debugTube) {
+            this.debugTube.dispose();
+            this.debugTube = null;
         }
     }
 }
