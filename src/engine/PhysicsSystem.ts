@@ -7,10 +7,13 @@ import {
     Ray,
     RayHelper,
     Color3,
-    CannonJSPlugin,
-    StandardMaterial
+    StandardMaterial,
+    CannonJSPlugin
 } from '@babylonjs/core';
 import '@babylonjs/core/Physics/physicsEngineComponent';
+
+import * as CANNON from 'cannon-es';
+
 import { AppConfig } from '../config/AppConfig';
 
 /**
@@ -36,7 +39,7 @@ export class PhysicsSystem {
      */
     private initializePhysics(): void {
         try {
-            const cannonPlugin = new CannonJSPlugin(true);
+            const cannonPlugin = new CannonJSPlugin(true, 10, CANNON);
             this.scene.enablePhysics(this.gravityVector, cannonPlugin);
             console.log('Physics engine initialized successfully');
         } catch (error) {
