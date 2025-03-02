@@ -42,7 +42,10 @@ export class TrackElementRenderer {
     public dispose(): void {
         if (this.mesh) {
             this.mesh.dispose();
+            this.mesh = null;
         }
-        this.material.dispose();
+        if (this.material) {
+            this.material.dispose();
+        }
     }
 }

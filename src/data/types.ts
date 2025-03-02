@@ -15,7 +15,6 @@ export enum ConnectorType {
  * Position and orientation of a connector
  */
 export interface Connector {
-  id: string;
   position: Vector3;   // Position relative to the track element origin
   normal: Vector3;     // Direction the connector faces (outward from the surface)
   upVector: Vector3;   // "Up" orientation for the connector
@@ -39,8 +38,6 @@ export interface TrackElement {
   name: string;
   description?: string;
   containerSize: Vector3;  // Size in grid blocks (1,1,1 = 10x10x10 units)
-  position: Vector3;
-  rotation: Vector3;
   connectors: Connector[];
 }
 
@@ -60,8 +57,7 @@ export interface TrackElementInstance {
     y: number;
     z: number;
   };
-  connectors?: {  // Mache connectors optional
-    id: string;
+  connectors?: {  // Optional connector overrides
     position: {
       x: number;
       y: number;
