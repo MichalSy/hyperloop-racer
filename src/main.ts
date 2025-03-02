@@ -2,6 +2,7 @@ import './style.css'
 import { AppConfig } from './config/AppConfig'
 import { initializeEditor } from './editor/EditorManager'
 import { initializeTestMode } from './test/TestManager'
+import { App } from './app/App'
 
 /**
  * Main application entry point
@@ -22,14 +23,29 @@ async function main() {
   appContainer.appendChild(loadingScreen);
 
   try {
+    // Initialize the app singleton
+    const app = App.getInstance();
+    await app.initialize();
+    
+    // Determine the start mode - either from URL parameter or AppConfig
+    let startMode = AppConfig.startMode;
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    
+    if (modeParam === 'editor' || modeParam === 'test') {
+      startMode = modeParam;
+    }
+    
+    console.log(`Starting in ${startMode} mode`);
+    
     // Initialize the application based on the start mode
-    if (AppConfig.startMode === 'editor') {
+    if (startMode === 'editor') {
       await initializeEditor(appContainer);
-    } else if (AppConfig.startMode === 'test') {
+    } else if (startMode === 'test') {
       await initializeTestMode(appContainer);
     } else {
-      console.error(`Unknown start mode: ${AppConfig.startMode}`);
-      throw new Error(`Unknown start mode: ${AppConfig.startMode}`);
+      console.error(`Unknown start mode: ${startMode}`);
+      throw new Error(`Unknown start mode: ${startMode}`);
     }
     
     // Remove loading screen
