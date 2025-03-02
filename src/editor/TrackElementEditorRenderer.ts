@@ -31,13 +31,33 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.connectorMaterial.emissiveColor = Color3.White();
     }
 
-    public render(position: Vector3): Mesh {
+    private createConnectorPoint(position: Vector3, parent: Mesh): void {
+        const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
+            diameter: 1
+        }, this.scene);
+        connectorSphere.material = this.connectorMaterial;
+        connectorSphere.position = position;
+        connectorSphere.setParent(parent);
+        this.meshes.push(connectorSphere);
+    }
+
+    private hasAdjacentCube(x: number, y: number, z: number): boolean {
+        return x >= 0 && x < this.trackElement.containerSize.x &&
+               y >= 0 && y < this.trackElement.containerSize.y &&
+               z >= 0 && z < this.trackElement.containerSize.z;
+    }
+
+    public render(): Mesh {
         const rootMesh = new Mesh("editor-root", this.scene);
         const containerMesh = new Mesh("container", this.scene);
         containerMesh.setParent(rootMesh);
 
         const blockSize = 10;
         const cubeScale = 1;
+        const connectorOffset = 5; // Half of blockSize
+
+        // Add origin point (0,0,0)
+        this.createConnectorPoint(new Vector3(0, 0, 0), containerMesh);
         
         // Calculate total dimensions for centering
         const totalWidth = this.trackElement.containerSize.x * blockSize;
@@ -59,30 +79,70 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
                         
                         cube.material = this.debugMaterial;
                         
-                        // Position relative to container center
-                        cube.position = new Vector3(
+                        const cubePosition = new Vector3(
                             x * blockSize,
                             y * blockSize,
                             z * blockSize + (blockSize / 2.0)
                         );
+                        cube.position = cubePosition;
                         
                         cube.setParent(containerMesh);
                         this.meshes.push(cube);
+
+                        // Add center point of the cube
+                        this.createConnectorPoint(new Vector3(
+                            cubePosition.x,
+                            cubePosition.y,
+                            cubePosition.z
+                        ), containerMesh);
+
+                        // Add forward center connector point
+                        this.createConnectorPoint(new Vector3(
+                            cubePosition.x,
+                            cubePosition.y,
+                            cubePosition.z + connectorOffset
+                        ), containerMesh);
+
+                        // Add side connector points only if there's no adjacent cube
+                        // Left connector
+                        if (!this.hasAdjacentCube(x - 1, y, z)) {
+                            this.createConnectorPoint(new Vector3(
+                                cubePosition.x - connectorOffset,
+                                cubePosition.y,
+                                cubePosition.z
+                            ), containerMesh);
+                        }
+
+                        // Right connector
+                        if (!this.hasAdjacentCube(x + 1, y, z)) {
+                            this.createConnectorPoint(new Vector3(
+                                cubePosition.x + connectorOffset,
+                                cubePosition.y,
+                                cubePosition.z
+                            ), containerMesh);
+                        }
+
+                        // Top connector
+                        if (!this.hasAdjacentCube(x, y + 1, z)) {
+                            this.createConnectorPoint(new Vector3(
+                                cubePosition.x,
+                                cubePosition.y + connectorOffset,
+                                cubePosition.z
+                            ), containerMesh);
+                        }
+
+                        // Bottom connector
+                        if (!this.hasAdjacentCube(x, y - 1, z)) {
+                            this.createConnectorPoint(new Vector3(
+                                cubePosition.x,
+                                cubePosition.y - connectorOffset,
+                                cubePosition.z
+                            ), containerMesh);
+                        }
                     }
                 }
             }
         }
-
-        // Add connector point relative to container center
-        const connectorSphere = MeshBuilder.CreateSphere("connector-sphere", {
-            diameter: 1
-        }, this.scene);
-        connectorSphere.material = this.connectorMaterial;
-        connectorSphere.position = new Vector3(0, 0, 0);
-        connectorSphere.setParent(containerMesh);
-        this.meshes.push(connectorSphere);
-
-
 
         rootMesh.position = new Vector3(
             -(totalWidth / 2.0) + (blockSize / 2.0),
