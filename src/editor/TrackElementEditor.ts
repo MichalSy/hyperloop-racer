@@ -1,28 +1,25 @@
 import { BabylonEngine } from "../engine/BabylonEngine";
-import { TrackElementManager } from "./TrackElementManager";
 import { TrackElementLibrary } from "../data/track-elements/TrackElementLibrary";
-import { Vector3 } from "@babylonjs/core";
+import { Vector3, Mesh, StandardMaterial, Color3 } from "@babylonjs/core";
 
 /**
  * TrackElementEditor handles the editing of individual track elements
  */
 export class TrackElementEditor {
     private engine: BabylonEngine;
-    private trackElementManager: TrackElementManager;
     private trackElementLibrary: TrackElementLibrary;
     private elementPanel: HTMLElement;
     private propertiesPanel: HTMLElement;
     private activeElementId: string | null = null;
+    private currentMesh: Mesh | null = null;
 
     constructor(
         engine: BabylonEngine,
-        trackElementManager: TrackElementManager,
         trackElementLibrary: TrackElementLibrary,
         elementPanel: HTMLElement,
         propertiesPanel: HTMLElement
     ) {
         this.engine = engine;
-        this.trackElementManager = trackElementManager;
         this.trackElementLibrary = trackElementLibrary;
         this.elementPanel = elementPanel;
         this.propertiesPanel = propertiesPanel;
@@ -46,7 +43,7 @@ export class TrackElementEditor {
 
             const name = document.createElement('div');
             name.className = 'element-name';
-            name.textContent = element.name; // Changed from elementId to name
+            name.textContent = element.name;
 
             elementItem.appendChild(thumbnail);
             elementItem.appendChild(name);
@@ -70,22 +67,21 @@ export class TrackElementEditor {
     }
 
     public showTrackElement(elementId: string) {
-        // Clear existing elements
-        this.trackElementManager.clearAllElements();
+        this.clearCurrentElement();
         
-        // Create new element at camera target position
         const camera = this.engine.getCamera();
         const position = camera.target.clone();
         
-        const instance = this.trackElementManager.createTrackElementInstance(
-            elementId,
-            position,
-            new Vector3(0, 0, 0)
-        );
-        
-        if (instance) {
-            this.trackElementManager.selectElement(instance.id);
+        const mesh = this.trackElementLibrary.createTrackElementMesh(elementId);
+        if (mesh) {
+            mesh.position = position;
+            mesh.rotation = new Vector3(0, 0, 0);
+            this.currentMesh = mesh;
             this.activeElementId = elementId;
+            
+            const highlightMaterial = new StandardMaterial("highlight", this.engine.getScene());
+            highlightMaterial.emissiveColor = Color3.Yellow();
+            mesh.material = highlightMaterial;
             
             // Update element panel to show active state
             const elements = this.elementPanel.querySelectorAll('.element-item');
@@ -95,22 +91,31 @@ export class TrackElementEditor {
                     el.classList.add('active');
                 }
             });
+
+            this.updatePropertiesPanel(elementId);
         }
     }
 
-    public updatePropertiesPanel(instanceId: string | null) {
-        if (!instanceId || !this.activeElementId) {
+    private clearCurrentElement() {
+        if (this.currentMesh) {
+            this.currentMesh.dispose();
+            this.currentMesh = null;
+        }
+    }
+
+    public updatePropertiesPanel(elementId: string | null) {
+        if (!elementId) {
             this.propertiesPanel.innerHTML = '<h3>Element Properties</h3>';
             return;
         }
 
-        const element = this.trackElementLibrary.getElementById(this.activeElementId);
+        const element = this.trackElementLibrary.getElementById(elementId);
         if (!element) return;
 
         this.propertiesPanel.innerHTML = `
             <h3>Element Properties</h3>
             <div class="element-info">
-                <h4>${element.name}</h4> <!-- Changed from elementId to name -->
+                <h4>${element.name}</h4>
                 <p>${element.description || ''}</p>
             </div>
             <div class="property-group">
@@ -123,7 +128,6 @@ export class TrackElementEditor {
     }
 
     public dispose() {
-        // Cleanup code here
-        this.trackElementManager.clearAllElements();
+        this.clearCurrentElement();
     }
 }

@@ -1,7 +1,6 @@
 import { TrackElementLibrary } from "../data/track-elements/TrackElementLibrary";
 import { BabylonEngine } from "../engine/BabylonEngine";
 import { PhysicsSystem } from "../engine/PhysicsSystem";
-import { TrackElementManager } from "./TrackElementManager";
 import { TrackEditor } from "./TrackEditor";
 import { TrackElementEditor } from "./TrackElementEditor";
 import { AppConfig } from '../config/AppConfig';
@@ -18,7 +17,6 @@ export class EditorManager {
     private elementPanel!: HTMLElement;
     private propertiesPanel!: HTMLElement;
     private modeToggleButton!: HTMLElement;
-    private trackElementManager!: TrackElementManager;
     private trackElementLibrary!: TrackElementLibrary;
     private physicsSystem!: PhysicsSystem;
     private autoSaveTimer: number | null = null;
@@ -39,23 +37,16 @@ export class EditorManager {
         this.physicsSystem = new PhysicsSystem(this.engine.getScene());
         this.trackElementLibrary = TrackElementLibrary.getInstance(this.engine.getScene());
         
-        // Initialize track element manager
-        this.trackElementManager = new TrackElementManager(
-            this.engine.getScene(),
-            this.trackElementLibrary,
-            this.physicsSystem
-        );
-        
         // Initialize specialized editors
         this.trackEditor = new TrackEditor(
             this.engine,
-            this.trackElementManager,
+            this.trackElementLibrary,
+            this.physicsSystem,
             this.propertiesPanel
         );
         
         this.trackElementEditor = new TrackElementEditor(
             this.engine,
-            this.trackElementManager,
             this.trackElementLibrary,
             this.elementPanel,
             this.propertiesPanel
@@ -114,11 +105,11 @@ export class EditorManager {
     private updateUIForMode() {
         if (this.currentMode === EditorMode.TrackElementEditor) {
             this.elementPanel.style.display = 'block';
-            this.trackElementManager.clearAllElements();
+            this.trackEditor.clearAllElements();
             this.trackElementEditor.showTrackElement(this.trackElementLibrary.getAllElements()[0].id);
         } else {
             this.elementPanel.style.display = 'none';
-            this.trackElementManager.clearSelection();
+            this.trackEditor.clearSelection();
         }
         this.updateModeToggleButton();
     }
@@ -137,7 +128,7 @@ export class EditorManager {
             this.updateUIForMode();
         });
 
-        this.trackElementManager.setOnSelectionChangeCallback((instanceId: string) => {
+        this.trackEditor.setOnSelectionChangeCallback((instanceId: string) => {
             if (this.currentMode === EditorMode.TrackElementEditor) {
                 this.trackElementEditor.updatePropertiesPanel(instanceId);
             } else {
@@ -171,7 +162,6 @@ export class EditorManager {
         
         this.trackElementEditor.dispose();
         this.trackEditor.dispose();
-        this.trackElementManager.dispose();
         
         if (this.engine) {
             this.engine.dispose();
