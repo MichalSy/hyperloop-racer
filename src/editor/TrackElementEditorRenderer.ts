@@ -16,7 +16,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.debugMaterial.useAlphaFromDiffuseTexture = true;
         this.debugMaterial.backFaceCulling = false;
         
-        this.debugMaterial.alpha = 0.4;
+        // this.debugMaterial.alpha = .6;
     }
 
     public render(position: Vector3): Mesh {

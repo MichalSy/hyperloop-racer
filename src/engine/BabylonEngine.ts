@@ -112,14 +112,14 @@ export class BabylonEngine {
 
     private setupScene() {
         // Set scene clear color
-        this.scene.clearColor = new Color4(0.8, 0.8, 0.8, 1);
+        this.scene.clearColor = new Color4(0.3, 0.3, 0.3, 1);
 
         // Create camera with better default position
         this.camera = new ArcRotateCamera(
             "camera",
             Math.PI / 2,
             Math.PI / 3,
-            30,  // Increased initial distance
+            10,  // Increased initial distance
             Vector3.Zero(),
             this.scene
         );
@@ -137,20 +137,6 @@ export class BabylonEngine {
             this.scene
         );
         light.intensity = 0.7;
-
-        this.createGround();
-    }
-
-    private createGround() {
-        const ground = MeshBuilder.CreateGround(
-            "ground",
-            { width: 100, height: 100 },
-            this.scene
-        );
-
-        const gridMaterial = new StandardMaterial("gridMaterial", this.scene);
-        gridMaterial.wireframe = true;
-        ground.material = gridMaterial;
     }
 
     /**

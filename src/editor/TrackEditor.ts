@@ -81,7 +81,7 @@ export class TrackEditor {
             this.markModified();
             
             const camera = this.engine.getCamera();
-            camera.position = new Vector3(0, 20, -30);
+            camera.position = new Vector3(45, 60, -70);
             camera.setTarget(new Vector3(0, 0, 0));
         }
     }
