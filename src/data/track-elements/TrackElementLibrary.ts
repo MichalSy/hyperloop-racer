@@ -1,6 +1,7 @@
-import { Scene, Mesh, MeshBuilder, StandardMaterial, Color3 } from '@babylonjs/core';
+import { Scene, Mesh, Vector3 } from '@babylonjs/core';
 import { TrackElement } from '../types';
 import { DefaultTrackElements } from './default-elements';
+import { TrackElementRenderer } from '../../editor/TrackElementRenderer';
 
 export class TrackElementLibrary {
     private static instance: TrackElementLibrary;
@@ -39,25 +40,14 @@ export class TrackElementLibrary {
         return [];
     }
 
-    public createTrackElementMesh(elementId: string): Mesh {
+    public createTrackElementMesh(elementId: string, position: Vector3 = Vector3.Zero()): Mesh {
         const element = this.getElementById(elementId);
         if (!element) {
             throw new Error(`Track element with id ${elementId} not found`);
         }
 
-        // Create box mesh based on element size multiplied by 10
-        const mesh = MeshBuilder.CreateBox(elementId, {
-            width: element.containerSize.x * 10,
-            height: element.containerSize.y * 10,
-            depth: element.containerSize.z * 10
-        }, this.scene);
-
-        // Create and apply material
-        const material = new StandardMaterial(`${elementId}-material`, this.scene);
-        material.diffuseColor = Color3.Gray();
-        mesh.material = material;
-
-        return mesh;
+        const renderer = new TrackElementRenderer(this.scene, element);
+        return renderer.render(position);
     }
 
     public getAllElements(): TrackElement[] {

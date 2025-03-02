@@ -1,6 +1,6 @@
 import { BabylonEngine } from "../engine/BabylonEngine";
 import { TrackElementLibrary } from "../data/track-elements/TrackElementLibrary";
-import { Vector3, Mesh, StandardMaterial, Color3 } from "@babylonjs/core";
+import { TrackElementEditorRenderer } from "./TrackElementEditorRenderer";
 
 /**
  * TrackElementEditor handles the editing of individual track elements
@@ -10,8 +10,7 @@ export class TrackElementEditor {
     private trackElementLibrary: TrackElementLibrary;
     private elementPanel: HTMLElement;
     private propertiesPanel: HTMLElement;
-    private activeElementId: string | null = null;
-    private currentMesh: Mesh | null = null;
+    private currentRenderer: TrackElementEditorRenderer | null = null;
 
     constructor(
         engine: BabylonEngine,
@@ -72,16 +71,10 @@ export class TrackElementEditor {
         const camera = this.engine.getCamera();
         const position = camera.target.clone();
         
-        const mesh = this.trackElementLibrary.createTrackElementMesh(elementId);
-        if (mesh) {
-            mesh.position = position;
-            mesh.rotation = new Vector3(0, 0, 0);
-            this.currentMesh = mesh;
-            this.activeElementId = elementId;
-            
-            const highlightMaterial = new StandardMaterial("highlight", this.engine.getScene());
-            highlightMaterial.emissiveColor = Color3.Yellow();
-            mesh.material = highlightMaterial;
+        const element = this.trackElementLibrary.getElementById(elementId);
+        if (element) {
+            this.currentRenderer = new TrackElementEditorRenderer(this.engine.getScene(), element);
+            this.currentRenderer.render(position);
             
             // Update element panel to show active state
             const elements = this.elementPanel.querySelectorAll('.element-item');
@@ -97,9 +90,9 @@ export class TrackElementEditor {
     }
 
     private clearCurrentElement() {
-        if (this.currentMesh) {
-            this.currentMesh.dispose();
-            this.currentMesh = null;
+        if (this.currentRenderer) {
+            this.currentRenderer.dispose();
+            this.currentRenderer = null;
         }
     }
 
