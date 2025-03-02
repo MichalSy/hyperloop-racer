@@ -9,6 +9,7 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
     private checkpointMaterial: StandardMaterial;
     private entryConnectorMaterial: StandardMaterial;
     private exitConnectorMaterial: StandardMaterial;
+    private arrowMaterial: StandardMaterial;
     private meshes: Mesh[] = [];
     private cubeConnectorMap: Map<Mesh, Mesh[]> = new Map();
     private connectorToCubesMap: Map<Mesh, Mesh[]> = new Map();
@@ -49,6 +50,11 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.exitConnectorMaterial = new StandardMaterial("exit-connector-material", scene);
         this.exitConnectorMaterial.diffuseColor = Color3.Red();
         this.exitConnectorMaterial.emissiveColor = Color3.Red();
+
+        // Create arrow material (yellow)
+        this.arrowMaterial = new StandardMaterial("arrow-material", scene);
+        this.arrowMaterial.diffuseColor = Color3.Yellow();
+        this.arrowMaterial.emissiveColor = Color3.Yellow();
     }
 
     private createConnectorPoint(position: Vector3, parent: Mesh, parentCube?: Mesh, connectorType?: ConnectorType): Mesh {
@@ -56,20 +62,25 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
             diameter: 1
         }, this.scene);
 
+        let isFixedConnector = false;
+
         if (connectorType) {
             // Set material and visibility based on connector type
             switch (connectorType) {
                 case ConnectorType.ENTRY:
                     connectorSphere.material = this.entryConnectorMaterial;
                     connectorSphere.visibility = 1;
+                    isFixedConnector = true;
                     break;
                 case ConnectorType.EXIT:
                     connectorSphere.material = this.exitConnectorMaterial;
                     connectorSphere.visibility = 1;
+                    isFixedConnector = true;
                     break;
                 case ConnectorType.CHECKPOINT:
                     connectorSphere.material = this.checkpointMaterial;
                     connectorSphere.visibility = 1;
+                    isFixedConnector = true;
                     break;
                 default:
                     connectorSphere.material = this.connectorMaterial;
@@ -85,6 +96,56 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         connectorSphere.setParent(parent);
 
         this.meshes.push(connectorSphere);
+
+        // If this is a fixed connector, create an arrow to show its up vector orientation
+        if (isFixedConnector) {
+            // Find the matching connector definition to get the up vector
+            const connector = this.trackElement.connectors.find(c => 
+                new Vector3(c.position.x, c.position.y, c.position.z).equals(position)
+            );
+
+            if (connector) {
+                // Create arrow cylinder
+                const arrowHeight = 2;
+                const arrow = MeshBuilder.CreateCylinder("connector-arrow", {
+                    height: arrowHeight,
+                    diameter: 0.2,
+                }, this.scene);
+
+                // Create arrow head (cone)
+                const arrowHead = MeshBuilder.CreateCylinder("connector-arrow-head", {
+                    height: 0.5,
+                    diameterTop: 0,
+                    diameterBottom: 0.4,
+                }, this.scene);
+
+                // Position arrow head on top of arrow cylinder
+                arrowHead.position.y = arrowHeight / 2;
+                arrowHead.setParent(arrow);
+
+                // Apply material
+                arrow.material = this.arrowMaterial;
+                arrowHead.material = this.arrowMaterial;
+
+                // Position and orient arrow based on connector's up vector
+                arrow.position = position;
+                
+                // Calculate rotation to align with up vector
+                const upVector = new Vector3(connector.upVector.x, connector.upVector.y, connector.upVector.z);
+                const defaultUp = new Vector3(0, 1, 0);
+                
+                // Calculate rotation axis and angle
+                const rotationAxis = Vector3.Cross(defaultUp, upVector);
+                const angle = Math.acos(Vector3.Dot(defaultUp.normalize(), upVector.normalize()));
+                
+                if (!rotationAxis.equals(Vector3.Zero())) {
+                    arrow.rotate(rotationAxis, angle);
+                }
+
+                arrow.setParent(parent);
+                this.meshes.push(arrow);
+            }
+        }
 
         if (parentCube) {
             if (!this.cubeConnectorMap.has(parentCube)) {
@@ -296,5 +357,6 @@ export class TrackElementEditorRenderer extends TrackElementRenderer {
         this.checkpointMaterial.dispose();
         this.entryConnectorMaterial.dispose();
         this.exitConnectorMaterial.dispose();
+        this.arrowMaterial.dispose();
     }
 }
