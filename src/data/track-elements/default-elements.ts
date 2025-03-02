@@ -9,7 +9,10 @@ export const DefaultTrackElements: TrackElement[] = [
   {
     id: 'straight-segment',
     name: 'Straight Segment',
+    description: 'A straight track segment',
     dimensions: { width: 10, height: 2, depth: 30 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),
@@ -32,7 +35,10 @@ export const DefaultTrackElements: TrackElement[] = [
   {
     id: 'curve-90',
     name: 'Curve 90°',
+    description: 'A 90-degree curve segment',
     dimensions: { width: 30, height: 2, depth: 30 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),
@@ -55,7 +61,10 @@ export const DefaultTrackElements: TrackElement[] = [
   {
     id: 'loop',
     name: 'Loop',
+    description: 'A vertical loop segment',
     dimensions: { width: 10, height: 40, depth: 60 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),
@@ -79,6 +88,8 @@ export const DefaultTrackElements: TrackElement[] = [
     id: 'ramp',
     name: 'Ramp',
     dimensions: { width: 10, height: 20, depth: 30 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),
@@ -102,6 +113,8 @@ export const DefaultTrackElements: TrackElement[] = [
     id: 'start-segment',
     name: 'Start Segment',
     dimensions: { width: 15, height: 2, depth: 30 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),
@@ -132,6 +145,8 @@ export const DefaultTrackElements: TrackElement[] = [
     id: 'finish-segment',
     name: 'Finish Segment',
     dimensions: { width: 15, height: 2, depth: 30 },
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
     connectors: [
       {
         id: generateUUID(),

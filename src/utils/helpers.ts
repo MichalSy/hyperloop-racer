@@ -1,17 +1,17 @@
-import { Vector3 } from '../data/types';
-import * as BABYLON from 'babylonjs';
+import { Vector3 } from '@babylonjs/core';
+import { Vector3 as AppVector3 } from '../data/types';
 
 /**
  * Converts an application Vector3 to a Babylon.js Vector3
  */
-export function toBabylonVector3(vector: Vector3): BABYLON.Vector3 {
-  return new BABYLON.Vector3(vector.x, vector.y, vector.z);
+export function toBabylonVector3(vector: AppVector3): Vector3 {
+  return new Vector3(vector.x, vector.y, vector.z);
 }
 
 /**
  * Converts a Babylon.js Vector3 to an application Vector3
  */
-export function toAppVector3(vector: BABYLON.Vector3): Vector3 {
+export function toAppVector3(vector: Vector3): AppVector3 {
   return { x: vector.x, y: vector.y, z: vector.z };
 }
 

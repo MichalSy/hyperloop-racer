@@ -46,7 +46,10 @@ export interface Dimensions {
 export interface TrackElement {
   id: string;
   name: string;
+  description?: string;
   dimensions: Dimensions;
+  position: Vector3;
+  rotation: Vector3;
   connectors: Connector[];
 }
 
@@ -54,29 +57,39 @@ export interface TrackElement {
  * Placed instance of a track element in a track
  */
 export interface TrackElementInstance {
+  id: string;
   elementId: string;      // Reference to the original track element
-  position: Vector3;      // Position in world space
-  rotation: Vector3;      // Rotation in world space (Euler angles)
-  connectors: {           // Mapped connectors with world positions/orientations
-    [connectorId: string]: {
-      worldPosition: Vector3;
-      worldNormal: Vector3;
-      worldUpVector: Vector3;
-    }
+  position: {
+    x: number;
+    y: number;
+    z: number;
   };
+  rotation: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  connectors?: {  // Mache connectors optional
+    id: string;
+    position: {
+      x: number;
+      y: number;
+      z: number;
+    };
+    rotation: {
+      x: number;
+      y: number;
+      z: number;
+    };
+  }[];
 }
 
 /**
  * Complete track definition
  */
 export interface Track {
-  id: string;
-  name: string;
-  author: string;
-  createdAt: string;
-  updatedAt: string;
+  data: TrackData;
   elements: TrackElementInstance[];
-  bestTimes: BestTime[];
 }
 
 /**
@@ -86,4 +99,19 @@ export interface BestTime {
   playerName: string;
   time: number;
   date: string;
+}
+
+export interface TrackData {
+  id: string;
+  name: string;
+  description?: string;
+  author?: string;
+  elements: TrackElementInstance[];
+  createdAt: string;
+  modifiedAt: string;
+  updatedAt?: string;
+  bestTimes: BestTime[];
+  checkpoints: Vector3[];
+  startPosition: Vector3;
+  startRotation: Vector3;
 }

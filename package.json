@@ -11,21 +11,18 @@
     "start:test": "vite --mode test"
   },
   "devDependencies": {
+    "@babylonjs/core": "^7.51.1",
+    "@types/cannon": "^0.1.13",
     "@types/jszip": "^3.4.0",
+    "@types/node": "^22.13.8",
     "jszip": "^3.10.1",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   },
   "dependencies": {
-    "@babylonjs/core": "^7.51.1",
     "@babylonjs/gui": "^7.51.1",
     "@babylonjs/loaders": "^7.51.1",
     "@babylonjs/materials": "^7.51.1",
-    "@rollup/rollup-win32-x64-msvc": "^4.34.9",
-    "babylonjs": "^7.51.1",
-    "babylonjs-gui": "^7.51.1",
-    "babylonjs-loaders": "^7.51.1",
-    "babylonjs-materials": "^7.51.1",
     "cannon": "^0.6.2"
   }
 }
