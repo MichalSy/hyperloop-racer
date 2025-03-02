@@ -4,9 +4,7 @@ import {
     Vector3,
     AbstractMesh,
     Mesh,
-    PhysicsEngine,
     CannonJSPlugin,
-    PhysicsHelper,
     Ray,
     RayHelper
   } from 'babylonjs';
@@ -17,7 +15,6 @@ import {
    */
   export class PhysicsSystem {
     private scene: Scene;
-    private physicsEngine: PhysicsEngine;
     private debugMode: boolean = false;
     private activeRays: RayHelper[] = [];
     
@@ -34,13 +31,21 @@ import {
      * Initializes the physics engine
      */
     private initPhysics(): void {
-      // Enable physics in the scene
-      const gravity = new Vector3(0, AppConfig.physics.gravity, 0);
-      const plugin = new CannonJSPlugin();
-      this.scene.enablePhysics(gravity, plugin);
-      this.physicsEngine = this.scene.getPhysicsEngine();
-      
-      console.log('Physics engine initialized');
+      try {
+        // Enable physics in the scene
+        const gravity = new Vector3(0, AppConfig.physics.gravity, 0);
+        
+        // Create physics plugin
+        const plugin = new CannonJSPlugin(true, 10);
+        
+        // Enable physics
+        this.scene.enablePhysics(gravity, plugin);
+        
+        console.log('Physics engine initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize physics engine:', error);
+        throw error;
+      }
     }
     
     /**

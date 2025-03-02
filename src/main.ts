@@ -4,6 +4,9 @@ import { initializeEditor } from './editor/EditorManager'
 import { initializeTestMode } from './test/TestManager'
 import { App } from './app/App'
 
+// Import Babylon.js core to ensure engines are loaded
+import '@babylonjs/core/Engines/engine';
+
 /**
  * Main application entry point
  */
@@ -22,10 +25,18 @@ async function main() {
   `;
   appContainer.appendChild(loadingScreen);
 
+  // Create canvas element immediately
+  const canvas = document.createElement('canvas');
+  canvas.id = 'renderCanvas';
+  canvas.style.width = '100%';
+  canvas.style.height = '100%';
+  canvas.style.display = 'none'; // Hide it initially
+  appContainer.appendChild(canvas);
+
   try {
-    // Initialize the app singleton
+    // Initialize the app singleton with the pre-created canvas
     const app = App.getInstance();
-    await app.initialize();
+    await app.initialize(canvas);
     
     // Determine the start mode - either from URL parameter or AppConfig
     let startMode = AppConfig.startMode;
@@ -37,6 +48,11 @@ async function main() {
     }
     
     console.log(`Starting in ${startMode} mode`);
+    
+    // Now we can remove the temporary canvas we created
+    if (canvas.parentNode === appContainer) {
+      appContainer.removeChild(canvas);
+    }
     
     // Initialize the application based on the start mode
     if (startMode === 'editor') {
@@ -62,12 +78,25 @@ async function main() {
       <div class="loading-content error">
         <h1>Error</h1>
         <p>Failed to initialize Hyperloop Racer</p>
-        <p class="error-message">${error}</p>
+        <div class="error-message">
+          ${error instanceof Error ? error.message : String(error)}
+          <br><br>
+          <details>
+            <summary>Technical Details</summary>
+            <pre>${error instanceof Error && error.stack ? error.stack : 'No stack trace available'}</pre>
+          </details>
+        </div>
         <button onclick="location.reload()">Reload</button>
+        <p>If the problem persists, please try a different browser.</p>
       </div>
     `;
   }
 }
 
-// Start the application when the DOM is ready
-document.addEventListener('DOMContentLoaded', main);
+// Check if the DOM is already loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', main);
+} else {
+  // DOM already loaded, run main directly
+  main();
+}

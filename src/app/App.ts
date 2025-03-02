@@ -33,8 +33,9 @@ export class App {
   
   /**
    * Initializes the application
+   * @param canvas Optional canvas element to use for rendering
    */
-  public async initialize(): Promise<void> {
+  public async initialize(canvas?: HTMLCanvasElement): Promise<void> {
     if (this.initialized) {
       return;
     }
@@ -44,18 +45,32 @@ export class App {
     // Load application settings
     this.loadSettings();
     
-    // Initialize core systems
-    this.engine = new BabylonEngine(document.querySelector('#renderCanvas') as HTMLCanvasElement);
-    this.physicsSystem = new PhysicsSystem(this.engine.getScene());
-    
-    // Set up event listeners for application lifecycle
-    window.addEventListener('beforeunload', () => this.onBeforeUnload());
-    window.addEventListener('resize', () => this.onResize());
-    
-    // Set up auto-save timer
-    setInterval(() => this.autoSave(), AppConfig.autoSaveInterval);
-    
-    this.initialized = true;
+    try {
+      // Initialize core systems with provided canvas or find it
+      const renderCanvas = canvas || document.querySelector('#renderCanvas') as HTMLCanvasElement;
+      if (!renderCanvas) {
+        throw new Error('Canvas element not found');
+      }
+      
+      // Initialize the Babylon engine
+      this.engine = new BabylonEngine(renderCanvas);
+      
+      // Initialize the physics system
+      this.physicsSystem = new PhysicsSystem(this.engine.getScene());
+      
+      // Set up event listeners for application lifecycle
+      window.addEventListener('beforeunload', () => this.onBeforeUnload());
+      window.addEventListener('resize', () => this.onResize());
+      
+      // Set up auto-save timer
+      setInterval(() => this.autoSave(), AppConfig.autoSaveInterval);
+      
+      this.initialized = true;
+      console.log('Application initialization completed successfully');
+    } catch (error) {
+      console.error('Failed to initialize application:', error);
+      throw error;
+    }
   }
 
   /**
