@@ -62,6 +62,8 @@ export class TrackElementManager {
             rotation: { x: rotation.x, y: rotation.y, z: rotation.z }
         };
 
+        this.instances.push(instance);
+
         const mesh = this.trackElementLibrary.createTrackElementMesh(elementId);
         if (mesh) {
             mesh.name = `track-element-${instance.id}`;
@@ -104,12 +106,8 @@ export class TrackElementManager {
         this.onSelectionChange = callback;
     }
 
-    public getElements(): TrackElementInstance[] {
-        return [...this.instances];
-    }
-
-    public getTrackElements(): TrackElementInstance[] {
-        return [...this.instances];
+    public getSelectedElement(): TrackElementInstance | null {
+        return this.selectedInstance;
     }
 
     public getTrackElementInstances(): TrackElementInstance[] {
