@@ -16,6 +16,7 @@ export class TrackElementRenderer {
         // Create default material
         this.material = new StandardMaterial(`${trackElement.id}-material`, scene);
         this.material.diffuseColor = Color3.Gray();
+        this.material.wireframe = true;
         // Disable backface culling to make both sides of the track visible
         this.material.backFaceCulling = false;
     }
@@ -210,115 +211,96 @@ export class TrackElementRenderer {
             throw new Error("Track must have at least two connectors");
         }
 
-        // Calculate distance between connectors to determine appropriate control point distances
+        // Calculate distance between connectors
         const distance = Vector3.Distance(entryConnector.worldPos, exitConnector.worldPos);
         
-        // Create an array for final curve points
+        // Create arrays for final curve points and up vectors
         const finalPoints: Vector3[] = [];
         const finalUpVectors: Vector3[] = [];
         
-        // Step 1: Add straight section at the beginning
-        // -----------------------------------------------
-        // Add several points in a straight line from the entry in its forward direction
-        const straightSectionLength = 2.5; // At least 10 units or 10% of total distance
-        const straightPointCount = 2; // Number of points for the straight section
-        
-        for (let i = 0; i < straightPointCount; i++) {
-            const t = i / (straightPointCount - 1);
-            const straightPoint = entryConnector.worldPos.add(
-                entryConnector.forwardVector.normalize().scale(straightSectionLength * t)
-            );
-            finalPoints.push(straightPoint);
-            finalUpVectors.push(entryConnector.upVector.clone());
-        }
-        
-        // The last point of the straight section will be the first control point for the curve
-        const entryControlPoint = finalPoints[finalPoints.length - 1].clone();
-        
-        // Step 2: Add straight section at the end (we'll append these after creating the curve)
-        // -----------------------------------------------
-        const endStraightPoints: Vector3[] = [];
-        const endStraightUpVectors: Vector3[] = [];
-        
-        for (let i = 0; i < straightPointCount; i++) {
-            const t = i / (straightPointCount - 1);
-            const straightPoint = exitConnector.worldPos.subtract(
-                exitConnector.forwardVector.normalize().scale(straightSectionLength * (1 - t))
-            );
-            endStraightPoints.push(straightPoint);
-            endStraightUpVectors.push(exitConnector.upVector.clone());
-        }
-        
-        // The first point of the end straight section will be the last control point for the curve
-        const exitControlPoint = endStraightPoints[0].clone();
-        
-        // Step 3: Generate the curved section between the straight sections
-        // -----------------------------------------------
-        
-        // We'll need control points that smoothly transition from the straight sections
-        // to the curved section - these will be farther in the direction of travel
-        const curveTransitionFactor = Math.min(0.5, Math.max(0.25, distance / 30));
-        
-        const entryTransitionPoint = entryControlPoint.add(
-            entryConnector.forwardVector.normalize().scale(distance * curveTransitionFactor)
+        // Get intermediate control points (checkpoints)
+        const intermediatePoints = processedConnectors.filter(c => 
+            c.type !== ConnectorType.ENTRY && c.type !== ConnectorType.EXIT
         );
         
-        const exitTransitionPoint = exitControlPoint.subtract(
-            exitConnector.forwardVector.normalize().scale(distance * curveTransitionFactor)
+        // Calculate control points using perpendicular vector approach
+        // This mimics graphic software's way of creating smooth curves
+        const controlPoints: Vector3[] = [];
+        
+        // Add entry point
+        controlPoints.push(entryConnector.worldPos.clone());
+        
+        // Calculate first control point after entry using entry's forward direction
+        // The distance should be proportional to the length of the total curve
+        // This is similar to setting "handle length" in graphic software
+        const entryControlLength = Math.min(distance * 0.5, 9.5); // Maximum 20 units or 1/3 of total distance
+        const entryControlPoint = entryConnector.worldPos.add(
+            entryConnector.forwardVector.normalize().scale(entryControlLength)
         );
+        controlPoints.push(entryControlPoint);
         
-        // Create control points for the main curved section
-        const curveControlPoints = [
-            entryControlPoint.clone(),
-            entryTransitionPoint,
-            // Add intermediate points if any
-            ...processedConnectors.filter(c => 
-                c.type !== ConnectorType.ENTRY && c !== exitConnector
-            ).map(c => c.worldPos.clone()),
-            exitTransitionPoint,
-            exitControlPoint.clone()
-        ];
+        // Add intermediate points if any
+        if (intermediatePoints.length > 0) {
+            intermediatePoints.forEach(point => {
+                controlPoints.push(point.worldPos.clone());
+            });
+        }
         
-        // Generate up vectors for the curve section
-        const curveUpVectors = [entryConnector.upVector.clone()];
+        // Calculate last control point before exit using exit's reverse forward direction
+        const exitControlLength = Math.min(distance * 0.5, 9.5); // Maximum 20 units or 1/3 of total distance
+        const exitControlPoint = exitConnector.worldPos.subtract(
+            exitConnector.forwardVector.normalize().scale(exitControlLength)
+        );
+        controlPoints.push(exitControlPoint);
         
-        // Add intermediate up vectors if any
-        processedConnectors.filter(c => 
-            c.type !== ConnectorType.ENTRY && c !== exitConnector
-        ).forEach(c => {
-            curveUpVectors.push(c.upVector.clone());
-        });
+        // Add exit point
+        controlPoints.push(exitConnector.worldPos.clone());
         
-        curveUpVectors.push(exitConnector.upVector.clone());
+        // Generate curve points with high density for smooth curves
+        const curveSegmentMultiplier = 2.5; // More points for smoother curves
+        const numCurvePoints = Math.max(50, Math.ceil(distance * curveSegmentMultiplier));
         
-        // Generate the curve points - higher density for smoother curves
-        const numCurvePoints = Math.max(50, Math.ceil(distance * 2.5));
+        // Create curve based on number of control points
         let curvePoints: Vector3[];
         
-        if (curveControlPoints.length <= 4) {
-            // For simple curves without intermediate points, use a Bezier curve
-            curvePoints = Curve3.CreateCubicBezier(
-                curveControlPoints[0],
-                curveControlPoints[1],
-                curveControlPoints[curveControlPoints.length - 2],
-                curveControlPoints[curveControlPoints.length - 1],
+        if (controlPoints.length === 3) {
+            // For simple case with just start and end points plus one control point
+            // Use quadratic bezier
+            curvePoints = Curve3.CreateQuadraticBezier(
+                controlPoints[0],
+                controlPoints[1],
+                controlPoints[2],
                 numCurvePoints
             ).getPoints();
-        } else {
+        } else if (controlPoints.length === 4) {
+            // For simple case with start, end and two control points
+            // Use cubic bezier (most common case for a single curve segment)
+            curvePoints = Curve3.CreateCubicBezier(
+                controlPoints[0],
+                controlPoints[1],
+                controlPoints[2],
+                controlPoints[3],
+                numCurvePoints
+            ).getPoints();
+        } else if (controlPoints.length > 4) {
             // For complex curves with intermediate points
+            // Use Catmull-Rom spline which passes through all points
             curvePoints = Curve3.CreateCatmullRomSpline(
-                curveControlPoints,
+                controlPoints,
                 numCurvePoints,
                 false // Do not close the curve
             ).getPoints();
+        } else {
+            // Default fallback to simple linear interpolation
+            curvePoints = [controlPoints[0].clone(), controlPoints[controlPoints.length - 1].clone()];
         }
         
-        // Remove the first and last points from the curve as they'll overlap with our straight sections
-        curvePoints = curvePoints.slice(1, -1);
+        // Use all generated points
+        finalPoints.push(...curvePoints);
         
-        // Generate up vectors for the curve points
-        for (let i = 0; i < curvePoints.length; i++) {
-            const t = i / (curvePoints.length - 1);
+        // Generate up vectors by interpolating between entry and exit
+        for (let i = 0; i < finalPoints.length; i++) {
+            const t = i / (finalPoints.length - 1);
             const upVector = Vector3.Lerp(
                 entryConnector.upVector,
                 exitConnector.upVector,
@@ -327,15 +309,6 @@ export class TrackElementRenderer {
             
             finalUpVectors.push(upVector);
         }
-        
-        // Step 4: Combine all sections
-        // -----------------------------------------------
-        // Skip the first point of the curved section as it would duplicate the last point of our entry straight section
-        finalPoints.push(...curvePoints);
-        
-        // Skip the first point of the end straight section as it would duplicate the last point of our curved section
-        finalPoints.push(...endStraightPoints);
-        finalUpVectors.push(...endStraightUpVectors);
         
         // Final verification - make sure the first and last points exactly match the connectors
         finalPoints[0] = entryConnector.worldPos.clone();
